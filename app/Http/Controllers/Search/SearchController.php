@@ -64,9 +64,10 @@ class SearchController extends Controller
 
     public function advanced_search()
     {
-        $this->authorize('Access Advanced Search'); // permission check
 
-        return view("$this->view.advanced_search");
+        $this->authorize('Access Advanced Search'); // permission check
+        $form_title = 'Advanced Search';
+        return view("$this->view.advanced_search", compact('form_title'));
     }
 
     public function edit($id)

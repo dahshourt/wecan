@@ -4,11 +4,11 @@
     @php
         $roles_name = auth()->user()->roles->pluck('name');
         $user_group = session()->has('current_group') ? session('current_group') : auth()->user()->defualt_group->id;
-        $user_group =\App\Models\Group::find($user_group);
-        $user_is_not_viewer = ! ($roles_name->count() === 1 && $roles_name->contains('Viewer'));
+        $user_group = \App\Models\Group::find($user_group);
+        $user_is_not_viewer = !($roles_name->count() === 1 && $roles_name->contains('Viewer'));
     @endphp
 
-        <!--begin::Content-->
+    <!--begin::Content-->
     <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
         <!--begin::Subheader-->
         <div class="subheader py-2 py-lg-12 subheader-transparent" id="kt_subheader">
@@ -44,15 +44,14 @@
                                     <a href='{{ url("$route/workflow/type") }}' class="btn btn-primary font-weight-bolder">
                                         <span class="svg-icon svg-icon-md">
                                             <!--begin::Svg Icon | path:assets/media/svg/icons/Design/Flatten.svg-->
-                                            <svg xmlns="http://www.w3.org/2000/svg"
-                                                 xmlns:xlink="http://www.w3.org/1999/xlink" width="24px"
-                                                 height="24px" viewBox="0 0 24 24" version="1.1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
                                                 <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                                    <rect x="0" y="0" width="24" height="24"/>
-                                                    <circle fill="#000000" cx="9" cy="15" r="6"/>
+                                                    <rect x="0" y="0" width="24" height="24" />
+                                                    <circle fill="#000000" cx="9" cy="15" r="6" />
                                                     <path
                                                         d="M8.8012943,7.00241953 C9.83837775,5.20768121 11.7781543,4 14,4 C17.3137085,4 20,6.6862915 20,10 C20,12.2218457 18.7923188,14.1616223 16.9975805,15.1987057 C16.9991904,15.1326658 17,15.0664274 17,15 C17,10.581722 13.418278,7 9,7 C8.93357256,7 8.86733422,7.00080962 8.8012943,7.00241953 Z"
-                                                        fill="#000000" opacity="0.3"/>
+                                                        fill="#000000" opacity="0.3" />
                                                 </g>
                                             </svg>
                                             <!--end::Svg Icon-->
@@ -69,7 +68,7 @@
                         @php
                             // Filter workflows to only show those with CRs
                             $workflows_with_crs = $active_work_flows->whereIn('id', array_keys($crs_by_work_flow_types));
-                            
+
                             // Determine active tab from request query parameters
                             $active_tab_id = null;
                             foreach (request()->query() as $key => $value) {
@@ -78,7 +77,7 @@
                                     break;
                                 }
                             }
-                            
+
                             // If no active tab from query, default to first workflow
                             if ($active_tab_id === null && $workflows_with_crs->count() > 0) {
                                 $active_tab_id = $workflows_with_crs->first()->id;
@@ -87,18 +86,15 @@
 
                         @if($workflows_with_crs->count() > 0)
                             <!--begin: Tabs Navigation-->
-                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-3x nav-tabs-line-primary mb-5"
-                                role="tablist">
+                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-3x nav-tabs-line-primary mb-5" role="tablist">
                                 @foreach($workflows_with_crs as $index => $workflow)
                                     @php
                                         $is_active = $workflow->id === $active_tab_id;
                                     @endphp
                                     <li class="nav-item">
-                                        <a class="nav-link {{ $is_active ? 'active' : '' }}"
-                                           data-toggle="tab"
-                                           href="#workflow_tab_{{ $workflow->id }}"
-                                           role="tab"
-                                           aria-selected="{{ $is_active ? 'true' : 'false' }}">
+                                        <a class="nav-link {{ $is_active ? 'active' : '' }}" data-toggle="tab"
+                                            href="#workflow_tab_{{ $workflow->id }}" role="tab"
+                                            aria-selected="{{ $is_active ? 'true' : 'false' }}">
                                             <span class="nav-text font-weight-bold">{{ $workflow->name }}</span>
                                         </a>
                                     </li>
@@ -113,22 +109,24 @@
                                         $is_active = $workflow->id === $active_tab_id;
                                     @endphp
                                     <div class="tab-pane fade {{ $is_active ? 'show active' : '' }}"
-                                         id="workflow_tab_{{ $workflow->id }}"
-                                         role="tabpanel">
+                                        id="workflow_tab_{{ $workflow->id }}" role="tabpanel">
 
                                         @php
                                             $collection = $crs_by_work_flow_types[$workflow->id];
                                         @endphp
 
                                         @if($workflow->id === 3)
-                                            <x-crs.in-house :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"  :collection="$collection" />
+                                            <x-crs.in-house :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"
+                                                :collection="$collection" />
                                         @elseif($workflow->id === 5)
-                                            <x-crs.vendor :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"  :collection="$collection" />
+                                            <x-crs.vendor :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"
+                                                :collection="$collection" />
                                         @elseif($workflow->id === 9)
-                                            <x-crs.promo :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"  :collection="$collection" />
+                                            <x-crs.promo :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"
+                                                :collection="$collection" />
                                         @endif
 
-                                            <!--begin: Pagination-->
+                                        <!--begin: Pagination-->
                                         <div class="d-flex justify-content-center mt-5">
                                             {{ $collection->links() }}
                                         </div>
@@ -217,6 +215,7 @@
                 opacity: 0;
                 transform: translateY(10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -341,11 +340,10 @@
                 newParams.set('type_' + tabId, '1');
 
                 const newUrl = window.location.pathname + '?' + newParams.toString();
-                window.history.pushState({path: newUrl}, '', newUrl);
+                window.history.pushState({ path: newUrl }, '', newUrl);
             });
 
             // No need to update pagination links - they already have type_X parameter from Laravel
         });
     </script>
 @endpush
-

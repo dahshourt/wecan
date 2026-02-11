@@ -3,6 +3,7 @@
         $fieldName  = $item->CustomField->name;
         $fieldLabel = $item->CustomField->label;
 
+        $isDisabled = isset($item->enable) && $item->enable != 1;
         $validationType = $item->validation_type_id ?? null;
         $isRequired = in_array($validationType, [1, 3]); // 1 = Required, 3 = Numeric Required
         $isNumeric  = in_array($validationType, [2, 3]); // 2 or 3 => numeric type
@@ -47,6 +48,7 @@
                     class="form-control form-control-lg @error($fieldName) is-invalid @enderror"
                     value="{{ $fieldValue }}"
                     @if ($isRequired) required @endif
+                    {{ $isDisabled ? "disabled" : "" }}
                 />
                 @error($fieldName)
                     <small class="text-danger">{{ $message }}</small>
@@ -62,6 +64,7 @@
                     value="{{ $fieldName === 'requester_name' ? auth()->user()->name : auth()->user()->email }}"
                     readonly
                     @if ($isRequired) required @endif
+                    {{ $isDisabled ? "disabled" : "" }}
                 />
                 @error($fieldName)
                     <small class="text-danger">{{ $message }}</small>
@@ -76,6 +79,7 @@
                     value="{{ $fieldValue }}"
                     @if ($isRequired) required @endif
                     @if ($isNumeric) step="any" @endif
+                    {{ $isDisabled ? "disabled" : "" }}
                 />
                 @error($fieldName)
                     <small class="text-danger">{{ $message }}</small>

@@ -182,8 +182,8 @@ class CustomFieldGroupTypeController extends Controller
         $crs_in_queues = $r->getAllWithoutPagination()->pluck('id');
         $cr_types = \App\Models\CrType::all();
         $searchType = 'advanced';
-
-        return view('search.advanced_search', compact('fields', 'statuses', 'priorities', 'applications', 'parents', 'categories', 'units', 'workflows', 'testing_users', 'sa_users', 'developer_users', 'totalCount', 'collection', 'items', 'crs_in_queues', 'cr_types', 'searchType'));
+        $form_title = 'Advanced Search';
+        return view('search.advanced_search', compact('fields', 'statuses', 'priorities', 'applications', 'parents', 'categories', 'units', 'workflows', 'testing_users', 'sa_users', 'developer_users', 'totalCount', 'collection', 'items', 'crs_in_queues', 'cr_types', 'searchType', 'form_title'));
     }
 
     public function AllCustomFieldsSelected()
