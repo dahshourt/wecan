@@ -84,12 +84,13 @@
 						<label>Password <span class="text-danger">*</span></label>
 						<div class="input-icon input-icon-right">
 							<input class="form-control custom-input" type="password" placeholder="Password"
-								name="password" required />
-							<span><i class="flaticon-eye text-muted"></i></span>
+								name="password" id="passwordInput" required />
+							<span id="togglePassword" style="cursor: pointer;"><i
+									class="flaticon-eye text-muted"></i></span>
 						</div>
-						<div class="d-flex justify-content-end mt-2">
+						<!-- <div class="d-flex justify-content-end mt-2">
 							<a href="#" class="forgot-password-link">Forget Password</a>
-						</div>
+						</div> -->
 					</div>
 
 					<!-- Hidden Remember Me or Visible if needed. Design didn't show it explicitly but good to keep functionally -->
@@ -113,6 +114,31 @@
 	<script src="{{asset('public/new_theme/assets/plugins/global/plugins.bundle.js')}}"></script>
 	<script src="{{asset('public/new_theme/assets/js/scripts.bundle.js')}}"></script>
 	<!--end::Global Theme Bundle-->
+
+	<!-- Password Toggle Script -->
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			const togglePassword = document.querySelector('#togglePassword');
+			const password = document.querySelector('#passwordInput');
+			const icon = togglePassword.querySelector('i');
+
+			togglePassword.addEventListener('click', function (e) {
+				// toggle the type attribute
+				const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+				password.setAttribute('type', type);
+
+				// toggle the eye icon color
+				// When visible (text), remove muted and add primary color to indicate "active/visible" state
+				if (type === 'text') {
+					icon.classList.remove('text-muted');
+					icon.classList.add('text-primary');
+				} else {
+					icon.classList.add('text-muted');
+					icon.classList.remove('text-primary');
+				}
+			});
+		});
+	</script>
 </body>
 <!--end::Body-->
 
