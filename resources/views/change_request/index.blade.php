@@ -420,6 +420,31 @@
     </script>
 
     <script>
+        // Global handler for promo description modal
+        $(document).on('click', '.description-preview', function (event) {
+            event.preventDefault();
+
+            let fullDescription = $(this).attr('data-description') || '';
+            try {
+                // Decode HTML entities and parse JSON
+                fullDescription = $('<div>').html(fullDescription).text();
+                fullDescription = JSON.parse(fullDescription);
+            } catch (e) {
+                // If parsing fails, use the raw value
+                console.warn('Failed to parse description JSON:', e);
+            }
+
+            var $modal = $('#descriptionModal');
+            if ($modal.length) {
+                // Ensure modal is attached directly to body to avoid z-index / stacking issues
+                $modal.appendTo('body');
+                $modal.find('.modal-body').text(fullDescription);
+                $modal.modal('show');
+            }
+        });
+    </script>
+
+    <script>
         // Tab persistence and pagination handling using pageName: type_{groupKey}_{workflowId}
         // Note: Initial tab activation is now handled server-side by PHP
         // JavaScript only handles dynamic tab switching and URL updates

@@ -204,25 +204,6 @@
     </div>
 </div>
 
-@push('script')
-<script>
-$(document).on('click', '.description-preview', function (event) {
-    event.preventDefault();
-    let fullDescription = $(this).attr('data-description') || '';
-    try {
-        // Decode HTML entities and parse JSON
-        fullDescription = $('<div>').html(fullDescription).text();
-        fullDescription = JSON.parse(fullDescription);
-    } catch (e) {
-        // If parsing fails, use the raw value
-        console.warn('Failed to parse description JSON:', e);
-    }
-    $('#descriptionModal .modal-body').text(fullDescription);
-    $('#descriptionModal').modal('show');
-});
-</script>
-@endpush
-
 @push('css')
 <style>
 .description-preview {
