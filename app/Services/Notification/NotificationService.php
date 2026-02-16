@@ -296,6 +296,28 @@ class NotificationService
             case 'pmo_team':
                 $group = Group::where('title',config('constants.group_names.pmo_team'))->first();
                 return $group ? [$group->head_group_email] : [config('constants.mails.pmo_team')];
+            case 'cap_users':
+                // If cap users were provided in the event/request (e.g. during update), use them
+                if (property_exists($event, 'request') && isset($event->request->cap_users) && is_array($event->request->cap_users) && !empty($event->request->cap_users)) {
+                    $emails = User::whereIn('id', $event->request->cap_users)->where('active', '1')->pluck('email')->filter()->values()->toArray();
+                    $this->toMailUser = $emails[0] ?? null;
+                    return $emails;
+                }
+
+                // Otherwise, try to load active CAB record for this CR and return its active CAB users
+                if (property_exists($event, 'changeRequest') && $event->changeRequest && isset($event->changeRequest->id)) {
+                    $cabCr = \App\Models\CabCr::where('cr_id', $event->changeRequest->id)
+                        ->whereRaw('CAST(status AS CHAR) = ?', ['0'])
+                        ->first();
+
+                    if ($cabCr) {
+                        $emails = $cabCr->activeCabCrUsers()->with('user')->get()->pluck('user.email')->filter()->values()->toArray();
+                        $this->toMailUser = $emails[0] ?? null;
+                        return $emails;
+                    }
+                }
+
+                return [];
             
             case 'assigned_dev_team':
                 // Get the group assigned to handle the CR
@@ -446,6 +468,8 @@ class NotificationService
         if ($rule->name == config('constants.rules.notify_division_manager_default')) {
             $crLink = route('edit.cr', ['id' => $cr->id, 'check_dm' => 1]);
         }
+
+        $applicationName = $cr->application->name ?? '';
         
         // Get QC email (RPA) and ticketing dev from config
         $qcEmail = config('constants.mails.qc_mail', '');
@@ -521,6 +545,7 @@ class NotificationService
             'start_cr_date' => $cr->start_CR_time,
             'start_sa_date' => $cr->start_design_time,
             'kickoff_meeting_date' => $kickoff_meeting_date,
+            'application_name' => $applicationName,
             
             // MDS-specific placeholders
             'mds_start_date' => $event->newStartDate ?? '',

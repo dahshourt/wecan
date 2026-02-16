@@ -300,6 +300,32 @@ Route::middleware(['auth'])->group(function () {
         Route::get('releases/home', 'reorderhome');
     });
 
+    // Release Stakeholders
+    Route::post('releases/{release}/stakeholders', [ReleaseController::class, 'storeStakeholder'])->name('releases.stakeholders.store');
+    Route::delete('releases/{release}/stakeholders/{stakeholder}', [ReleaseController::class, 'destroyStakeholder'])->name('releases.stakeholders.destroy');
+
+    // Release Risks
+    Route::post('releases/{release}/risks', [ReleaseController::class, 'storeRisk'])->name('releases.risks.store');
+    Route::put('releases/{release}/risks/{risk}', [ReleaseController::class, 'updateRisk'])->name('releases.risks.update');
+    Route::delete('releases/{release}/risks/{risk}', [ReleaseController::class, 'destroyRisk'])->name('releases.risks.destroy');
+
+    // Release Change Requests (AJAX)
+    Route::get('releases/{release}/search-cr', [ReleaseController::class, 'searchCr'])->name('releases.search-cr');
+    Route::post('releases/{release}/attach-cr', [ReleaseController::class, 'attachCr'])->name('releases.attach-cr');
+    Route::delete('releases/{release}/detach-cr', [ReleaseController::class, 'detachCr'])->name('releases.detach-cr');
+
+    // Release Team Members (AJAX)
+    Route::post('releases/{release}/team-members', [ReleaseController::class, 'storeTeamMember'])->name('releases.team-members.store');
+    Route::delete('releases/{release}/team-members/{member}', [ReleaseController::class, 'destroyTeamMember'])->name('releases.team-members.destroy');
+
+    // Release Attachments Download
+    Route::get('releases/attachments/{attachment}/download', [ReleaseController::class, 'downloadAttachment'])->name('releases.attachments.download');
+
+    // Release CR Attachments (AJAX)
+    Route::post('releases/{release}/cr-attachments', [ReleaseController::class, 'storeCrAttachment'])->name('releases.cr-attachments.store');
+    Route::delete('releases/{release}/cr-attachments/{attachment}', [ReleaseController::class, 'destroyCrAttachment'])->name('releases.cr-attachments.destroy');
+    Route::get('releases/cr-attachments/{attachment}/download', [ReleaseController::class, 'downloadCrAttachment'])->name('releases.cr-attachments.download');
+
     // --- Defects ---
     Route::controller(DefectController::class)->group(function () {
         Route::get('create_defect/cr_id/{id}', 'Create');

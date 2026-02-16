@@ -108,6 +108,8 @@
 		});
 	</script>
 
+    @include('change_request.partials.on_behalf_script')
+
 	<script>
 		function viewCR(url) {
 

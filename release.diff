@@ -1,0 +1,2075 @@
+diff --git a/app/Http/Controllers/Releases/ReleaseController.php b/app/Http/Controllers/Releases/ReleaseController.php
+index a982725..710f2c3 100644
+--- a/app/Http/Controllers/Releases/ReleaseController.php
++++ b/app/Http/Controllers/Releases/ReleaseController.php
+@@ -40,12 +40,8 @@ class ReleaseController extends Controller
+     public function index()
+     {
+         $this->authorize('List Release');
+-        if (isset($_GET['search'])) {
+-            $search = $_GET['search'];
+-        } else {
+-            $search = '';
+-        }
+-        $collection = $this->release->paginateAll($search);
++
++        $collection = $this->release->paginateAll();
+ 
+         return view("$this->view.index", compact('collection'));
+     }
+@@ -59,16 +55,12 @@ class ReleaseController extends Controller
+     {
+         $this->authorize('Create Release');
+ 
+-        $releaseWorkflowTypeId = WorkFlowType::where('name', 'Release')->whereNotNull('parent_id')->value('id');
+-
+-        $workflow = NewWorkFlow::where('type_id', $releaseWorkflowTypeId)->first();
+-
+-        $statuses = collect([$workflow->from_status]);
+-
+-        // dd($statuses);
+-
+-        // $statuses = Status::all();
+-        return view("$this->view.create", compact('statuses'));
++        $vendors = \App\Models\Vendor::where('active', 1)->get();
++        $priorities = \App\Models\Priority::all();
++        $applications = \App\Models\Application::where('active', 1)->get();
++        $rtmUsers = \App\Models\User::all(); // Filter by role if needed
++        
++        return view("$this->view.create", compact('vendors', 'priorities', 'applications', 'rtmUsers'));
+     }
+ 
+     public function reorderhome()
+@@ -174,7 +166,10 @@ class ReleaseController extends Controller
+         $statuses = collect([$workflow->from_status]);
+ 
+         // $release = releaseResource::collection($release);
+-        return view("$this->view.release_show", compact('row', 'statuses'));
++
++        $logs = $this->release->DisplayLogs($id);
++
++        return view("$this->view.release_show", compact('row', 'statuses', 'logs'));
+     }
+ 
+     public function show_release($id)
+@@ -197,7 +192,10 @@ class ReleaseController extends Controller
+         $current_status = collect([$current_status]);
+ 
+         // $release = releaseResource::collection($release);
+-        return view("$this->view.release_show", compact('row', 'statuses'));
++
++        $logs = $this->release->DisplayLogs($id);
++
++        return view("$this->view.release_show", compact('row', 'statuses', 'logs'));
+     }
+ 
+     /**
+@@ -214,6 +212,7 @@ class ReleaseController extends Controller
+         // dd($this->authorize('Edit Release'),$this->authorize('Edit Release Status'));
+ 
+         $row = $this->release->find($id);
++        $row->load(['vendor', 'priority', 'attachments', 'feedbacks.creator', 'releaseStatusObj']);
+ 
+         $releaseWorkflowTypeId = WorkFlowType::where('name', 'Release')->whereNotNull('parent_id')->value('id');
+ 
+@@ -229,7 +228,10 @@ class ReleaseController extends Controller
+         $current_status = Status::find($row->release_status);
+         $current_status = collect([$current_status]);
+ 
+-        return view("$this->view.edit", compact('row', 'statuses', 'current_status'));
++        $vendors = \App\Models\Vendor::where('active', 1)->get();
++        $priorities = \App\Models\Priority::all();
++        
++        return view("$this->view.edit", compact('row', 'statuses', 'current_status', 'vendors', 'priorities'));
+ 
+     }
+ 
+@@ -262,7 +264,10 @@ class ReleaseController extends Controller
+ 
+     public function lisVendor()
+     {
+-        $list_vendo = $this->release->listVendor();
++        // If we switched to simple text field, this might be redundant, but keeping for backward compat if table exists.
++        // If user wants specific vendor list, we might need a model. 
++        // For now, returning empty or fetching distinct names.
++        $list_vendo = \App\Models\Release::select('vendor_name')->distinct()->get();
+ 
+         return response()->json(['data' => $list_vendo], 200);
+     }
+@@ -274,17 +279,36 @@ class ReleaseController extends Controller
+         return response()->json(['data' => $listReleaseStatus], 200);
+     }
+ 
+-    public function update_release_its_crs()
++    public function uploadAttachment(Request $request)
+     {
+-        $this->authorize('Release To CRs');
+-
+-        $all_releases = $this->release->get_iot_releass();
++        $request->validate([
++            'release_id' => 'required|exists:releases,id',
++            'file' => 'required|file|max:10240', // 10MB max
++        ]);
++
++        $file = $request->file('file');
++        $fileName = time() . '_' . $file->getClientOriginalName();
++        $filePath = $file->storeAs('release_attachments', $fileName, 'public');
++
++        $this->release->createAttachment([
++            'release_id' => $request->release_id,
++            'file_name' => $fileName,
++            'file_path' => $filePath,
++            'user_id' => auth()->id(),
++        ]);
++
++        return response()->json(['success' => 'File uploaded successfully']);
++    }
+ 
+-        foreach ($all_releases as $key => $value) {
+-            $next_status = $this->release->update_release_status($value->id);
+-            $this->release->update_crs_of_release($value->id, $next_status);
++    public function downloadAttachment($id)
++    {
++        $attachment = $this->release->findAttachment($id);
++        if (!$attachment) {
++            abort(404);
+         }
+-
++        $path = storage_path('app/public/' . $attachment->file_path);
++        
++        return response()->download($path, $attachment->file_name);
+     }
+ 
+     public function ReleaseLogs($id)
+diff --git a/app/Http/Repository/Releases/ReleaseRepository.php b/app/Http/Repository/Releases/ReleaseRepository.php
+index d383498..7b5323d 100644
+--- a/app/Http/Repository/Releases/ReleaseRepository.php
++++ b/app/Http/Repository/Releases/ReleaseRepository.php
+@@ -24,56 +24,48 @@ class ReleaseRepository implements ReleasesRepositoryInterface
+ 
+     public function create($request)
+     {
+-
+-        $releaseWorkflowTypeId = WorkFlowType::where('name', 'Release')->whereNotNull('parent_id')
+-            ->value('id');
+-
++        $releaseWorkflowTypeId = WorkFlowType::where('name', 'Release')->whereNotNull('parent_id')->value('id');
+         $workflow = NewWorkFlow::where('type_id', $releaseWorkflowTypeId)->first();
+ 
+-        // dd($workflow);
+-        return Release::create([
++        $release = Release::create([
+             'name' => $request['name'],
+-            'release_status' => $workflow->from_status_id,
+-            'go_live_planned_date' => $request['go_live_planned_date'],
+-            'planned_start_iot_date' => $request['planned_start_iot_date'],
+-            'planned_end_iot_date' => $request['planned_end_iot_date'],
+-            'planned_start_e2e_date' => $request['planned_start_e2e_date'],
+-            'planned_end_e2e_date' => $request['planned_end_e2e_date'],
+-            'planned_start_uat_date' => $request['planned_start_uat_date'],
+-            'planned_end_uat_date' => $request['planned_end_uat_date'],
+-            'planned_start_smoke_test_date' => $request['planned_start_smoke_test_date'],
+-            'planned_end_smoke_test_date' => $request['planned_end_smoke_test_date'],
++            'vendor_id' => $request['vendor_id'],
++            'priority_id' => $request['priority_id'],
++            'target_system_id' => $request['target_system_id'] ?? null,
++            'responsible_rtm_id' => $request['responsible_rtm_id'] ?? null,
++            'creator_rtm_name' => $request['creator_rtm_name'],
++            'rtm_email' => $request['rtm_email'],
++            'release_description' => $request['release_description'] ?? null,
++            'release_start_date' => $request['release_start_date'] ?? null,
++            'go_live_planned_date' => $request['go_live_planned_date'] ?? null,
++            'release_status' => $workflow->from_status_id ?? null,
+         ]);
+ 
++        // Handle Technical Feedback
++        if (!empty($request['technical_feedback'])) {
++            \App\Models\ReleaseFeedback::create([
++                'release_id' => $release->id,
++                'feedback' => $request['technical_feedback'],
++                'created_by' => auth()->id(),
++            ]);
++        }
++
++        return $release;
+     }
+ 
+     public function list()
+     {
+-        return Release::with(['vendors', 'status'])->get();
++        return Release::with(['vendor', 'status'])->get();
+     }
+ 
+-    public function paginateAll($search)
++    public function paginateAll($search = null)
+     {
+-        $group = session('default_group') ?? auth()->user()->default_group;
+-
+-        $release = Release::whereHas('status.group_statuses', function ($query) use ($group) {
+-            $query->where('group_id', $group);
+-        })
++        return Release::with(['vendor', 'status'])
+             ->when($search, function ($query, $search) {
+-                $query->where('name', 'like', "%{$search}%") // Search in the `Release` table
+-                    ->orWhereHas('status', function ($query) use ($search) {
+-                        $query->where('status_name', 'like', "%{$search}%"); // Search in `releaseStatus.name`
+-                    });
++                $query->where('name', 'like', "%{$search}%");
+             })
+-            ->with(['status.group_statuses', 'status']) // Eager load related data
+             ->latest()
+             ->paginate(10);
+-        // $sql = $release->toSql();
+-        // $bindings = $release->getBindings();
+-
+-        // // Log or dump the query
+-        // dd(vsprintf(str_replace('?', "'%s'", $sql), $bindings));
+-        return $release;
+     }
+ 
+     public function show($id)
+@@ -85,23 +77,21 @@ class ReleaseRepository implements ReleasesRepositoryInterface
+     {
+         // dd($request);
+         $old_release = $this->find($id);
+-        if (isset($request['status'])) {
++        if (isset($request['status']) && ($old_release->release_status != $request['status'])) {
+             $this->update_crs_of_release($id, $request['status']);
+-            $this->UpdateReleaseActualDates($id, $request['status'], $old_release->release_status);
+         }
+ 
+         Release::where('id', $id)->update([
+             'name' => $request['name'],
+             'release_status' => isset($request['status']) ? $request['status'] : $old_release->release_status,
++            'release_start_date' => $request['release_start_date'],
+             'go_live_planned_date' => $request['go_live_planned_date'],
+-            'planned_start_iot_date' => $request['planned_start_iot_date'],
+-            'planned_end_iot_date' => $request['planned_end_iot_date'],
+-            'planned_start_e2e_date' => $request['planned_start_e2e_date'],
+-            'planned_end_e2e_date' => $request['planned_end_e2e_date'],
+-            'planned_start_uat_date' => $request['planned_start_uat_date'],
+-            'planned_end_uat_date' => $request['planned_end_uat_date'],
+-            'planned_start_smoke_test_date' => $request['planned_start_smoke_test_date'],
+-            'planned_end_smoke_test_date' => $request['planned_end_smoke_test_date'],
++            'vendor_name' => $request['vendor_name'],
++            'priority' => $request['priority'],
++            'creator_rtm_name' => $request['creator_rtm_name'],
++            'rtm_email' => $request['rtm_email'],
++            'release_description' => $request['release_description'],
++            'technical_feedback' => $request['technical_feedback'],
+         ]);
+ 
+         $this->StoreLog($id, $old_release, $request);
+@@ -110,193 +100,66 @@ class ReleaseRepository implements ReleasesRepositoryInterface
+ 
+     }
+ 
+-    public function get_iot_releass()
+-    {
+-        $start_release_workflow = new NewWorkflowRepository();
+-        $start_release_workflow = $start_release_workflow->getFirstCreationStatus(7);
+-        // dd($start_release_workflow->from_status_id);
+-        // dd($start_release_workflow[0]->from_status_id,$start_release_workflow[0]->workflowStatuses[0]->to_status_id);
+-        $today = date('Y-m-d');
+-
+-        return $releases = Release::whereDate('planned_start_iot_date', $today)
+-            ->where('release_status', $start_release_workflow->from_status_id)
+-            ->get();
+-    }
+-
+-    public function update_release_status($release_id)
+-    {
+-        $release = Release::where('id', $release_id)->select('release_status')->first();
+-
+-        $new_workflow = new NewWorkflowRepository();
+-        $new_workflow = $new_workflow->get_next_status_release($release->release_status);
+-        Release::where('id', $release_id)->update(['release_status' => $new_workflow->workflowstatus[0]->to_status_id]);
+-
+-        return $new_workflow->workflowstatus[0]->new_workflow_id;
+-
+-    }
+-
+-    public function update_crs_of_release($release_id, $next_status)
+-    {
+-        $change_request = new ChangeRequestRepository();
+-        $crs_matched_entred_release = $change_request->get_change_request_by_release($release_id);
+-        // dd($crs_matched_entred_release[0]->CurrentRequestStatuses->new_status_id);
+-        // dd($crs_matched_entred_release[1]->CurrentRequestStatuses->new_status_id);
+-        // dd($crs_matched_entred_release);
+-
+-        foreach ($crs_matched_entred_release as $key => $value) {
+-            $old_status_id = $crs_matched_entred_release[$key]->CurrentRequestStatuses->new_status_id;
+-            // dd($old_status_id);
+-            $workflow = NewWorkFlow::where('from_status_id', $old_status_id)
+-                ->where('type_id', 5)
+-                ->whereHas('workflowstatus', function ($query) use ($next_status) {
+-                    $query->where('to_status_id', $next_status);
+-                })->first();
+-            // dd($workflow);
+-            if ($workflow) {
+-                $request = [
+-                    'new_workflow_id' => $workflow->id,
+-                    'new_status_id' => "$next_status",
+-                    'old_status_id' => $crs_matched_entred_release[$key]->CurrentRequestStatuses->new_status_id,
+-                    'assign_to' => 1,
+-                ];
+-                $requestCollection = collect($request);
+-                // dd($requestCollection);
+-                // echo $value->id . "<br />";
+-                $updated = $change_request->UpateChangeRequestStatus($value->id, $requestCollection);
+-            }
+-        }
+-        // dd(' crs');
+-    }
+-
+-    public function update_release_its_crs()
+-    {
+-        $all_releases = $this->get_iot_releass();
+-        foreach ($all_releases as $key => $value) {
+-            $next_status = $this->update_release_status($value->id);
+-            $this->update_crs_of_release($value->id, $next_status);
+-        }
+-
+-    }
+-
+     public function StoreLog($id, $old_data, $request)
+     {
+         $user_name = 'admin';
+         if (Auth::user()) {
+             $user_name = Auth::user()->user_name;
+         }
++
++        // Status Log
+         if (isset($request['status']) && ($old_data->release_status != $request['status'])) {
+             $old_status_name = Status::find($old_data->release_status)->status_name;
+             $new_status_name = Status::find($request['status'])->status_name;
+             $log_text = " Status changed from $old_status_name to $new_status_name by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-                'status_id' => $request['status'],
+-            ];
+-            ReleaseLogs::create($data);
+-        }
+-        // dd($id , $request['planned_start_iot_date'],$old_data->planned_start_iot_date);
+-        if (isset($request['planned_start_iot_date']) && ($old_data->planned_start_iot_date != $request['planned_start_iot_date'])) {
+-            $planned_start_iot_date = $request['planned_start_iot_date'];
+-            $log_text = " Planned start IOT date changed from $old_data->planned_start_iot_date to $planned_start_iot_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
+-        }
+-
+-        if (isset($request['planned_end_iot_date']) && ($old_data->planned_end_iot_date != $request['planned_end_iot_date'])) {
+-            $planned_end_iot_date = $request['planned_end_iot_date'];
+-            $log_text = " Planned end IOT date changed from $old_data->planned_end_iot_date to $planned_end_iot_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
+-        }
+-
+-        if (isset($request['planned_start_e2e_date']) && ($old_data->planned_start_e2e_date != $request['planned_start_e2e_date'])) {
+-            $planned_start_e2e_date = $request['planned_start_e2e_date'];
+-            $log_text = " Planned start E2E date changed from $old_data->planned_start_e2e_date to $planned_start_e2e_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
+-        }
+-
+-        if (isset($request['planned_end_e2e_date']) && ($old_data->planned_end_e2e_date != $request['planned_end_e2e_date'])) {
+-            $planned_end_e2e_date = $request['planned_end_e2e_date'];
+-            $log_text = " Planned end E2E date changed from $old_data->planned_end_e2e_date to $planned_end_e2e_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
+-        }
+-
+-        if (isset($request['planned_start_uat_date']) && ($old_data->planned_start_uat_date != $request['planned_start_uat_date'])) {
+-            $planned_start_uat_date = $request['planned_start_uat_date'];
+-            $log_text = " Planned start UAT date changed from $old_data->planned_start_uat_date to $planned_start_uat_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
+-        }
+-
+-        if (isset($request['planned_end_uat_date']) && ($old_data->planned_end_uat_date != $request['planned_end_uat_date'])) {
+-            $planned_end_uat_date = $request['planned_end_uat_date'];
+-            $log_text = " Planned end UAT date changed from $old_data->planned_end_uat_date to $planned_end_uat_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
++            $this->createLog($id, $log_text, Auth::user()->id, $request['status']);
++        }
++
++        // General Fields Log
++        $fields = [
++            'name' => 'Release Name',
++            'release_start_date' => 'Release Start Date',
++            'go_live_planned_date' => 'Go Live Planned Date',
++            'vendor_name' => 'Vendor Name',
++            'priority' => 'Priority',
++            'creator_rtm_name' => 'Creator RTM Name',
++            'rtm_email' => 'RTM Email',
++            'release_description' => 'Release Description',
++        ];
++
++        foreach ($fields as $key => $label) {
++            if (isset($request[$key]) && ($old_data->$key != $request[$key])) {
++                $oldVal = $old_data->$key ?? 'N/A';
++                $newVal = $request[$key];
++                $log_text = " $label changed from $oldVal to $newVal by $user_name";
++                $this->createLog($id, $log_text, Auth::user()->id);
++            }
+         }
+-
+-        if (isset($request['planned_start_smoke_test_date']) && ($old_data->planned_start_smoke_test_date != $request['planned_start_smoke_test_date'])) {
+-            $planned_start_smoke_test_date = $request['planned_start_smoke_test_date'];
+-            $log_text = " Planned start smoke test date changed from $old_data->planned_start_smoke_test_date to $planned_start_smoke_test_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
++        
++        // Log Technical Feedback Updates if handled here (or in controller)
++        if (isset($request['technical_feedback']) && !empty($request['technical_feedback'])) {
++             // Logic to compare or just log that feedback was added
++             // For now we assume appending or distinct updates. 
++             // If the feedback column in DB is just text, we log the change.
++             if ($old_data->technical_feedback != $request['technical_feedback']) {
++                 $log_text = " Technical Feedback updated by $user_name";
++                 $this->createLog($id, $log_text, Auth::user()->id);
++             }
+         }
+ 
+-        if (isset($request['planned_end_smoke_test_date']) && ($old_data->planned_end_smoke_test_date != $request['planned_end_smoke_test_date'])) {
+-            $planned_end_smoke_test_date = $request['planned_end_smoke_test_date'];
+-            $log_text = " Planned end smoke test date changed from $old_data->planned_end_smoke_test_date to $planned_end_smoke_test_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
+-        }
++        return true;
++    }
+ 
+-        if (isset($request['go_live_planned_date']) && ($old_data->go_live_planned_date != $request['go_live_planned_date'])) {
+-            $go_live_planned_date = $request['go_live_planned_date'];
+-            $log_text = " Planned go live date changed from $old_data->go_live_planned_date to $go_live_planned_date by $user_name";
+-            $data = [
+-                'release_id' => $id,
+-                'user_id' => Auth::user()->id,
+-                'log_text' => $log_text,
+-            ];
+-            ReleaseLogs::create($data);
++    private function createLog($release_id, $text, $user_id, $status_id = null) {
++        $data = [
++            'release_id' => $release_id,
++            'user_id' => $user_id,
++            'log_text' => $text,
++        ];
++        if($status_id) {
++            $data['status_id'] = $status_id;
+         }
+-
+-        return true;
++        ReleaseLogs::create($data);
+     }
+ 
+     public function DisplayLogs($release_id)
+@@ -305,33 +168,13 @@ class ReleaseRepository implements ReleasesRepositoryInterface
+ 
+         return $logs;
+     }
+-
+-    public function UpdateReleaseActualDates($id, $new_status, $old_status)
++    public function createAttachment($data)
+     {
+-        $current_date = date('Y-m-d');
+-        $old_status_name = Status::find($old_status)->status_name;
+-        $new_status_name = Status::find($new_status)->status_name;
+-
+-        if (str_contains($old_status_name, 'Release Plan') && str_contains($new_status_name, 'IOT')) {
+-            Release::where('id', $id)->update(['actual_start_iot_date' => $current_date]);
+-        }
+-
+-        if (str_contains($old_status_name, 'IOT') && str_contains($new_status_name, 'UAT')) {
+-            Release::where('id', $id)->update(['actual_end_iot_date' => $current_date]);
+-            Release::where('id', $id)->update(['actual_start_uat_date' => $current_date]);
+-        }
+-
+-        if (str_contains($old_status_name, 'UAT') && str_contains($new_status_name, 'Smoke')) {
+-            Release::where('id', $id)->update(['actual_end_uat_date' => $current_date]);
+-            Release::where('id', $id)->update(['actual_start_smoke_test_date' => $current_date]);
+-        }
+-
+-        if (str_contains($old_status_name, 'Smoke') && str_contains($new_status_name, 'Closure')) {
+-            Release::where('id', $id)->update(['actual_end_smoke_test_date' => $current_date]);
+-            Release::where('id', $id)->update(['actual_closure_date' => $current_date]);
+-        }
+-
+-        return true;
++        return \App\Models\ReleaseAttachment::create($data);
++    }
+ 
++    public function findAttachment($id)
++    {
++        return \App\Models\ReleaseAttachment::find($id);
+     }
+ }
+diff --git a/app/Models/release.php b/app/Models/release.php
+index 8d8d947..b8de184 100644
+--- a/app/Models/release.php
++++ b/app/Models/release.php
+@@ -11,30 +11,72 @@ class Release extends Model
+ 
+     protected $fillable = [
+         'name',
++        'vendor_id',
++        'priority_id',
++        'target_system_id',
++        'responsible_rtm_id',
++        'creator_rtm_name',
++        'rtm_email',
++        'release_description',
++        'release_start_date',
+         'go_live_planned_date',
+-        'planned_start_iot_date',
+-        'planned_end_iot_date',
+-        'planned_start_e2e_date',
+-        'planned_end_e2e_date',
+-        'planned_start_uat_date',
+-        'planned_end_uat_date',
+-        'planned_start_smoke_test_date',
+-        'planned_end_smoke_test_date',
++        'atp_review_start_date',
++        'atp_review_end_date',
++        'vendor_internal_test_start_date',
++        'vendor_internal_test_end_date',
++        'iot_start_date',
++        'iot_end_date',
++        'e2e_start_date',
++        'e2e_end_date',
++        'uat_start_date',
++        'uat_end_date',
++        'smoke_test_start_date',
++        'smoke_test_end_date',
+         'release_status',
+     ];
+ 
++    public function vendor()
++    {
++        return $this->belongsTo(Vendor::class);
++    }
++
++    public function priority()
++    {
++        return $this->belongsTo(Priority::class);
++    }
++
++    public function targetSystem()
++    {
++        return $this->belongsTo(Application::class, 'target_system_id');
++    }
++
++    public function responsibleRtm()
++    {
++        return $this->belongsTo(User::class, 'responsible_rtm_id');
++    }
++
+     public function status()
+     {
+         return $this->belongsTo(Status::class, 'release_status');
+     }
+ 
+-    public function releaseStatus()
++    public function releaseStatusObj()
++    {
++        return $this->belongsTo(ReleaseStatus::class, 'release_status_id');
++    }
++
++    public function attachments()
++    {
++        return $this->hasMany(ReleaseAttachment::class);
++    }
++
++    public function feedbacks()
+     {
+-        return $this->belongsTo(Release_statuse::class, 'release_status', 'id');
++        return $this->hasMany(ReleaseFeedback::class);
+     }
+ 
+     public function changeRequests()
+     {
+-        return $this->hasMany(ChangeRequest::class);
++        return $this->hasMany(Change_request::class, 'release_name');
+     }
+ }
+diff --git a/resources/views/releases/create.blade.php b/resources/views/releases/create.blade.php
+index 858c723..715f41f 100644
+--- a/resources/views/releases/create.blade.php
++++ b/resources/views/releases/create.blade.php
+@@ -30,7 +30,7 @@
+ 							<!--begin::Container-->
+ 							<div class="container">
+ 								<div class="row">
+-									
++								
+                                     
+ 									<div class="col-md-12">
+ 										
+@@ -48,7 +48,7 @@
+                                                 @include("$view.form")
+ 												<div class="card-footer">
+ 													<button type="submit" class="btn btn-success mr-2">Submit</button>
+-													<a href="{{ route('stages.index') }}" class="btn btn-primary">cancel</a>
++													<a href="{{ route("$route.index") }}" class="btn btn-primary">cancel</a>
+ 												</div>
+ 											</form>
+ 											<!--end::Form-->
+diff --git a/resources/views/releases/edit.blade.php b/resources/views/releases/edit.blade.php
+index 4382c5c..5645f5e 100644
+--- a/resources/views/releases/edit.blade.php
++++ b/resources/views/releases/edit.blade.php
+@@ -1,88 +1,124 @@
+-
+-
+ @extends('layouts.app')
+ 
+ @section('content')
+-
+-<!--begin::Content-->
+ <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
+-						<!--begin::Subheader-->
+-						<div class="subheader py-2 py-lg-12 subheader-transparent" id="kt_subheader">
+-							<div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+-								<!--begin::Info-->
+-								<div class="d-flex align-items-center flex-wrap mr-1">
+-									<!--begin::Heading-->
+-									<div class="d-flex flex-column">
+-										<!--begin::Title-->
+-										<h2 class="text-white font-weight-bold my-2 mr-5">{{$title}}</h2>
+-										<!--end::Title-->
+-										
+-									</div>
+-									<!--end::Heading-->
+-								</div>
+-								<!--end::Info-->
+-								
+-							</div>
+-						</div>
+-						<!--end::Subheader-->
+-						<!--begin::Entry-->
+-						<div class="d-flex flex-column-fluid">
+-							<!--begin::Container-->
+-							<div class="container">
+-								<div class="row">
+-									
+-                                    
+-									<div class="col-md-12">
+-										
++    <div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
++        <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
++            <div class="d-flex align-items-center flex-wrap mr-1">
++                <div class="d-flex flex-column">
++                    <h2 class="text-white font-weight-bold my-2 mr-5">Edit Release: {{ $row->name }}</h2>
++                </div>
++            </div>
++            <div class="d-flex align-items-center">
++                <a href="{{ route('releases.index') }}" class="btn btn-secondary font-weight-bolder">
++                    <i class="la la-arrow-left"></i> Back to List
++                </a>
++            </div>
++        </div>
++    </div>
+ 
++    <div class="d-flex flex-column-fluid">
++        <div class="container">
++            {{-- Status Progress Bar --}}
++            @include('releases.partials.status_bar', ['release' => $row])
+ 
+-										<!--begin::Card-->
+-										<div class="card card-custom gutter-b example example-compact">
+-											<div class="card-header">
+-												<h3 class="card-title">Edit {{ $form_title }}</h3>
+-												
+-											</div>
+-											<!--begin::Form-->
+-											<form class="form" action='{{url("$route")}}/{{ $row->id }}' method="post" enctype="multipart/form-data">
+-                                                {{ csrf_field() }}
+-                                                {{ method_field('PATCH') }}
+-                                                <input type="hidden" name="id" value="{{ $row->id }}">
+-                                                @include("$view.form")
+-												<div class="card-footer">
+-												@if($row->release_status != '49') 
+-													<button type="submit" class="btn btn-success mr-2">Submit</button>
+-													<a href="{{ route('releases.index') }}" class="btn btn-primary">cancel</a>
+-												@endif
+-													<a class="btn btn-danger" href="" onclick="OpenPopUpWindow('{{ url('/') }}/release/logs/{{ $row->id }}');return false;" target="_parent">
+-													
+-												Release Logs</a>
+-												</div>
+-											</form>
+-											<!--end::Form-->
+-										</div>
+-										<!--end::Card-->
++            {{-- Main Card with Tabs --}}
++            <div class="card card-custom gutter-b">
++                <div class="card-header card-header-tabs-line nav-tabs-line-3x">
++                    <div class="card-toolbar">
++                        <ul class="nav nav-tabs nav-bold nav-tabs-line nav-tabs-line-3x" role="tablist">
++                            <li class="nav-item">
++                                <a class="nav-link active" data-toggle="tab" href="#tab_release" role="tab">
++                                    <span class="nav-icon"><i class="la la-file-alt"></i></span>
++                                    <span class="nav-text">Release</span>
++                                </a>
++                            </li>
++                            <li class="nav-item">
++                                <a class="nav-link" data-toggle="tab" href="#tab_release_plan" role="tab">
++                                    <span class="nav-icon"><i class="la la-calendar"></i></span>
++                                    <span class="nav-text">Release Plan</span>
++                                </a>
++                            </li>
++                            <li class="nav-item">
++                                <a class="nav-link" data-toggle="tab" href="#tab_stakeholder" role="tab">
++                                    <span class="nav-icon"><i class="la la-users"></i></span>
++                                    <span class="nav-text">Stakeholder Register</span>
++                                </a>
++                            </li>
++                            <li class="nav-item">
++                                <a class="nav-link" data-toggle="tab" href="#tab_risk" role="tab">
++                                    <span class="nav-icon"><i class="la la-exclamation-triangle"></i></span>
++                                    <span class="nav-text">Release Risk Register</span>
++                                </a>
++                            </li>
++                        </ul>
++                    </div>
++                </div>
+ 
+-                                        
+-									</div>
+-								</div>
+-							</div>
+-							<!--end::Container-->
+-						</div>
+-						<!--end::Entry-->
+-					</div>
+-					<!--end::Content-->
++                <div class="card-body">
++                    <form action="{{ route('releases.update', $row->id) }}" method="POST" enctype="multipart/form-data">
++                        @csrf
++                        @method('PUT')
+ 
+-@endsection
++                        <div class="tab-content">
++                            {{-- Tab 1: Release --}}
++                            <div class="tab-pane fade show active" id="tab_release" role="tabpanel">
++                                @include('releases.partials.tabs.release', ['row' => $row, 'vendors' => $vendors, 'priorities' => $priorities])
++                            </div>
+ 
++                            {{-- Tab 2: Release Plan --}}
++                            <div class="tab-pane fade" id="tab_release_plan" role="tabpanel">
++                                @include('releases.partials.tabs.release_plan', ['row' => $row])
++                            </div>
+ 
++                            {{-- Tab 3: Stakeholder Register --}}
++                            <div class="tab-pane fade" id="tab_stakeholder" role="tabpanel">
++                                @include('releases.partials.tabs.stakeholder_register', ['row' => $row])
++                            </div>
+ 
+-@push('script')
++                            {{-- Tab 4: Release Risk Register --}}
++                            <div class="tab-pane fade" id="tab_risk" role="tabpanel">
++                                @include('releases.partials.tabs.release_risk_register', ['row' => $row])
++                            </div>
++                        </div>
+ 
++                        <div class="card-footer">
++                            <div class="row">
++                                <div class="col-12 text-right">
++                                    <button type="submit" class="btn btn-primary font-weight-bolder px-8">
++                                        <i class="la la-save"></i> Save Changes
++                                    </button>
++                                </div>
++                            </div>
++                        </div>
++                    </form>
++                </div>
++            </div>
++        </div>
++    </div>
++</div>
++@endsection
++
++@push('script')
+ <script>
+-function OpenPopUpWindow(url) {
+-    window.open(url, "mywindow", "location=1,status=1,scrollbars=1,width=1000,height=900");
+-}
++    $(document).ready(function() {
++        // Initialize Select2 for all dropdowns
++        $('.select2').select2({
++            placeholder: "Select an option",
++            allowClear: true,
++            width: '100%'
++        });
+ 
+-</script>
++        // Preserve active tab on page load (from URL hash)
++        var hash = window.location.hash;
++        if (hash) {
++            $('.nav-tabs a[href="' + hash + '"]').tab('show');
++        }
+ 
+-@endpush
+\ No newline at end of file
++        // Update URL hash when tab changes
++        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
++            history.pushState(null, null, e.target.hash);
++        });
++    });
++</script>
++@endpush
+diff --git a/resources/views/releases/form.blade.php b/resources/views/releases/form.blade.php
+index d5f58b4..70d69a9 100644
+--- a/resources/views/releases/form.blade.php
++++ b/resources/views/releases/form.blade.php
+@@ -1,183 +1,152 @@
+-<div class="card-body">
++@php
++    $isEdit = isset($row);
++@endphp
+ 
++<div class="card-body">
+     @if($errors->any())
+-    <div class="m-alert m-alert--icon alert alert-danger" role="alert" id="m_form_1_msg">
+-        <div class="m-alert__icon">
+-            <i class="la la-warning"></i>
++        <div class="alert alert-custom alert-light-danger fade show mb-5" role="alert">
++            <div class="alert-icon"><i class="flaticon-warning"></i></div>
++            <div class="alert-text">
++                <ul class="mb-0 pl-3">
++                    @foreach ($errors->all() as $error)
++                        <li>{{ $error }}</li>
++                    @endforeach
++                </ul>
++            </div>
+         </div>
+-        <div class="m-alert__text">
+-            There are some errors
++    @endif
++
++    <!-- Section: Release Information -->
++    <div class="card card-custom card-stretch gutter-b">
++        <div class="card-header border-0 pt-5">
++            <h3 class="card-title font-weight-bolder">Release Information</h3>
+         </div>
+-        <div class="m-alert__close">
+-            <button type="button" class="close" data-close="alert" aria-label="Close"></button>
++        <div class="card-body">
++            <div class="row">
++                @if($isEdit)
++                <div class="col-md-4">
++                    <div class="form-group">
++                        <label class="font-weight-bold">Release ID #</label>
++                        <input type="text" class="form-control-plaintext" value="{{ $row->id }}" disabled>
++                    </div>
++                </div>
++                @endif
++                <div class="col-md-{{ $isEdit ? '8' : '12' }}">
++                    <div class="form-group">
++                        <label class="font-weight-bold">Release Name <span class="text-danger">*</span></label>
++                        <input type="text" class="form-control" name="name" value="{{ $row->name ?? old('name') }}" required placeholder="Enter Release Name">
++                    </div>
++                </div>
++            </div>
++
++            <div class="row">
++                <div class="col-md-6">
++                    <div class="form-group">
++                        <label class="font-weight-bold">Vendor Name <span class="text-danger">*</span></label>
++                        <select class="form-control select2" name="vendor_id" required>
++                            <option value="">Select Vendor</option>
++                            @foreach($vendors as $vendor)
++                                <option value="{{ $vendor->id }}" {{ (isset($row) && $row->vendor_id == $vendor->id) ? 'selected' : '' }}>{{ $vendor->name }}</option>
++                            @endforeach
++                        </select>
++                    </div>
++                </div>
++                <div class="col-md-6">
++                    <div class="form-group">
++                        <label class="font-weight-bold">Priority <span class="text-danger">*</span></label>
++                        <select class="form-control select2" name="priority_id" required>
++                            <option value="">Select Priority</option>
++                            @foreach($priorities as $priority)
++                                <option value="{{ $priority->id }}" {{ (isset($row) && $row->priority_id == $priority->id) ? 'selected' : '' }}>{{ $priority->name }}</option>
++                            @endforeach
++                        </select>
++                    </div>
++                </div>
++            </div>
+         </div>
+     </div>
+-    @endif
+-
+-@if (Str::contains(request()->url(), 'show_release'))
+-	
+-	{{$disable = "disabled"}}
+-@else
+-{{$disable = ""}}
+-@endif
+-
+-
+-    <div class="form-group form-group-last"></div>
+-
+-													<div class="form-group form-group-last">
+-														
+-													</div>
+-													@php 
+-														if(isset($row))
+-														{
+-															$Rtm_disbaled = true; 
+-															$status_disabled = true; 
+-														} 
+-														else
+-														{
+-															$Rtm_disbaled = false; 
+-															$status_disabled = false; 
+-														}
+-													@endphp
+-													@can('Edit Release')
+-														@php  
+-															$Rtm_disbaled = false; 
+-															$status_disabled = false; 
+-														@endphp
+-													@endcan
+-													@can('Edit Release Status')
+-														@php  $status_disabled = false;  @endphp
+-													@endcan
+-													<div class="form-group">
+-														<label>Name:</label>
+-														<input type="text" class="form-control form-control-lg" placeholder="Name" name="name" value="{{ isset($row) ? $row->name : old('name') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('name', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-
+-													@if(isset($row))
+-													<div class="form-group">
+-														<label for="status_id">Release Status</label>
+-														<select class="form-control form-control-lg" id="status_id" name="status" {{ $Rtm_disbaled && $status_disabled ? "disabled" :"" }}>
+-															@if(isset($current_status))
+-															@foreach($current_status as $item)
+-															<option  selected="true" disabled="disabled"> {{ $item->status_name }} </option>
+-															@endforeach
+-															@endif
+-															@if($statuses)
+-															@foreach($statuses as $item)
+-															<option value="{{ $item->id }}" {{ isset($row) && $row->status_id == $item->id ? "selected" : "" }}> {{ $item->status_name }} </option>
+-															@endforeach
+-															@endif
+-														</select>
+-														{!! $errors->first('status_id', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-													@endif
+-
+-													
+-
+-													<div class="form-group">
+-														<label>Planned Start IOT Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="planned_start_iot_date" 
+-															value="{{ isset($row) ? $row->planned_start_iot_date : old('planned_start_iot_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('planned_start_iot_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-													
+-													<div class="form-group">
+-														<label>Planned End IOT Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="planned_end_iot_date" 
+-															value="{{ isset($row) ? $row->planned_end_iot_date : old('planned_end_iot_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('planned_end_iot_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-
+-													<div class="form-group">
+-														<label>Planned Start E2E Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="planned_start_e2e_date" 
+-															value="{{ isset($row) ? $row->planned_start_e2e_date : old('planned_start_e2e_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('planned_start_e2e_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-													
+-													<div class="form-group">
+-														<label>Planned End E2E Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="planned_end_e2e_date" 
+-															value="{{ isset($row) ? $row->planned_end_e2e_date : old('planned_end_e2e_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('planned_end_e2e_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-
+-													<div class="form-group">
+-														<label>Planned Start UAT Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="planned_start_uat_date" 
+-															value="{{ isset($row) ? $row->planned_start_uat_date : old('planned_start_uat_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('planned_start_uat_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-													
+-													<div class="form-group">
+-														<label>Planned End UAT Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="planned_end_uat_date" 
+-															value="{{ isset($row) ? $row->planned_end_uat_date : old('planned_end_uat_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('planned_end_uat_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-
+-													<div class="form-group">
+-														<label>Planned Start Smoke Test Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="planned_start_smoke_test_date" 
+-															value="{{ isset($row) ? $row->planned_start_smoke_test_date : old('planned_start_smoke_test_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('planned_start_smoke_test_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-													
+-													<div class="form-group">
+-														<label>Planned End Smoke Test Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="planned_end_smoke_test_date" 
+-															value="{{ isset($row) ? $row->planned_end_smoke_test_date : old('planned_end_smoke_test_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('planned_end_smoke_test_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+ 
+-													<div class="form-group">
+-														<label>Go Live Planned Date:</label>
+-														<input type="date" class="form-control form-control-lg" name="go_live_planned_date" 
+-															value="{{ isset($row) ? $row->go_live_planned_date : old('go_live_planned_date') }}" {{ $Rtm_disbaled ? "disabled" :"" }} />
+-														{!! $errors->first('go_live_planned_date', '<span class="form-control-feedback">:message</span>') !!}
+-													</div>
+-
+-
+-													
+-										
+-													
+-													
+-												</div>
++    <!-- Section: Creator Information -->
++    <div class="card card-custom card-stretch gutter-b">
++        <div class="card-header border-0 pt-5">
++            <h3 class="card-title font-weight-bolder">Creator Information</h3>
++        </div>
++        <div class="card-body">
++            <div class="row">
++                <div class="col-md-6">
++                    <div class="form-group">
++                        <label class="font-weight-bold">Creator RTM Name</label>
++                        <input type="text" class="form-control" name="creator_rtm_name" value="{{ $row->creator_rtm_name ?? auth()->user()->name }}" readonly style="background-color: #f3f6f9;">
++                    </div>
++                </div>
++                <div class="col-md-6">
++                    <div class="form-group">
++                        <label class="font-weight-bold">RTM Email</label>
++                        <input type="email" class="form-control" name="rtm_email" value="{{ $row->rtm_email ?? auth()->user()->email }}">
++                    </div>
++                </div>
++            </div>
++        </div>
++    </div>
+ 
++    <!-- Section: Details -->
++    <div class="card card-custom card-stretch gutter-b">
++        <div class="card-header border-0 pt-5">
++            <h3 class="card-title font-weight-bolder">Details</h3>
++        </div>
++        <div class="card-body">
++            <div class="form-group">
++                <label class="font-weight-bold">Release Description</label>
++                <textarea class="form-control" name="release_description" rows="4">{{ $row->release_description ?? old('release_description') }}</textarea>
++            </div>
++        </div>
++    </div>
+ 
++    <!-- Section: Dates -->
++    <div class="card card-custom card-stretch gutter-b">
++        <div class="card-header border-0 pt-5">
++            <h3 class="card-title font-weight-bolder">Timeline</h3>
++        </div>
++        <div class="card-body">
++            <div class="row">
++                <div class="col-md-6">
++                    <div class="form-group">
++                        <label class="font-weight-bold">Release Start Date</label>
++                        <input type="date" class="form-control" name="release_start_date" value="{{ $row->release_start_date ?? old('release_start_date') }}">
++                    </div>
++                </div>
++                <div class="col-md-6">
++                    <div class="form-group">
++                        <label class="font-weight-bold">Go Live Planned Date</label>
++                        <input type="date" class="form-control" name="go_live_planned_date" value="{{ $row->go_live_planned_date ?? old('go_live_planned_date') }}">
++                    </div>
++                </div>
++            </div>
++        </div>
++    </div>
+ 
++    <!-- Section: Attachments & Feedback -->
++    <div class="card card-custom card-stretch gutter-b">
++        <div class="card-header border-0 pt-5">
++            <h3 class="card-title font-weight-bolder">Technical Information</h3>
++        </div>
++        <div class="card-body">
++            <div class="form-group">
++                <label class="font-weight-bold">Technical Attachment</label>
++                <input type="file" class="form-control" name="technical_attachment">
++            </div>
++            <div class="form-group">
++                <label class="font-weight-bold">Technical Feedback</label>
++                <textarea class="form-control" name="technical_feedback" rows="3" placeholder="Enter feedback..."></textarea>
++            </div>
++        </div>
++    </div>
+ </div>
+ 
+ @push('script')
+ <script>
+-	$(document).ready(function() {
+-    //$('#new_status_id').on('change', function() {
+-        // Get the selected status
+-        //var status = $('select[name="new_status_id"]').val();
+-        var status = $('select[name="status"] option:selected').val();
+-		
+-        // Check if status is "Reject" or "Closed"
+-        if (status === "Closed") {
+-            // Disable all input fields
+-			console.log(status); 
+-			console.log('test'); 
+-            $('input, select, textarea').prop('disabled', true);
+-        } else {
+-            // Enable all input fields if status is not "Reject" or "Closed"
+-            $('input, select, textarea').prop('disabled', false);
+-        }
+-        
+-        // Keep the status field enabled to allow changing
+-        //$('#status_id').prop('disabled', false);
+-    //});
+-});
+-    $('#user_type').change(function() {
+-        if ($(this).val() != 1) {
+-            $(".local_password_div").show();
+-        } else {
+-            $(".local_password_div").hide();
+-        }
++    $(document).ready(function() {
++        $('.select2').select2({ placeholder: "Select an option", allowClear: true, width: '100%' });
+     });
+ </script>
+ @endpush
+diff --git a/resources/views/releases/index.blade.php b/resources/views/releases/index.blade.php
+index b95559f..b0a9ebe 100644
+--- a/resources/views/releases/index.blade.php
++++ b/resources/views/releases/index.blade.php
+@@ -1,212 +1,59 @@
+ @extends('layouts.app')
+ 
+ @section('content')
+-<!-- DataTables CSS -->
+-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.css">
+-
+-<!-- jQuery -->
+-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+-
+-<!-- DataTables JS -->
+-<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js"></script>
+-
+-					<!--begin::Content-->
+-					<div class="content d-flex flex-column flex-column-fluid" id="kt_content">
+-						<!--begin::Subheader-->
+-						<div class="subheader py-2 py-lg-12 subheader-transparent" id="kt_subheader">
+-							<div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+-								<!--begin::Info-->
+-								<div class="d-flex align-items-center flex-wrap mr-1">
+-									<!--begin::Heading-->
+-									<div class="d-flex flex-column">
+-										<!--begin::Title-->
+-										<h2 class="text-white font-weight-bold my-2 mr-5">{{ $title }}</h2>
+-										<!--end::Title-->
+-										
+-									</div>
+-									<!--end::Heading-->
+-								</div>
+-								<!--end::Info-->
+-							</div>
+-						</div>
+-						<!--end::Subheader-->
+-						<!--begin::Entry-->
+-						<div class="d-flex flex-column-fluid">
+-							<!--begin::Container-->
+-							<div class="container">
+-								
+-								<!--begin::Card-->
+-								<div class="card">
+-									<div class="card-header flex-wrap border-0 pt-6 pb-0">
+-										<div class="card-title">
+-											<h3 class="card-label">{{ $title }}
+-										</div>
+-										<div class="card-toolbar">
+-    <!-- Add search box -->
+-	<div class="d-flex col-md-8" style="
+-    float: right;">
+-    <form action="" method="GET" class="d-flex align-items-center shadow-sm p-2 rounded" style="width: 50%; background-color: #f8f9fa;">
+-        <div class="input-group w-100">
+-            <!-- Search Input -->
+-            <input type="text" name="search" id="searchInput" class="form-control border-right-0" placeholder="Search..." style="border-radius: 30px 0 0 30px; font-size: 1.1rem; height: 45px; padding-left: 15px; border: 1px solid #ccc; box-shadow: none;" value="{{ request('search') }}">
+-            
+-            <!-- Clear Search Button -->
+-            <button type="button" id="clearSearch" class="btn btn-light border-left-0" style="border-radius: 0 30px 30px 0; height: 45px; font-size: 1.1rem; color: #6c757d; border: 1px solid #ccc; box-shadow: none;">
+-                <i class="fas fa-times"></i>
+-            </button>
++    <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
++        <div class="subheader py-2 py-lg-6 subheader-transparent" id="kt_subheader">
++            <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
++                <div class="d-flex align-items-center flex-wrap mr-1">
++                    <div class="d-flex flex-column">
++                        <h2 class="text-white font-weight-bold my-2 mr-5">{{ $title }}</h2>
++                    </div>
++                </div>
++            </div>
+         </div>
+ 
+-        <!-- Search Button -->
+-        <button type="submit" class="btn btn-primary ml-2" style="border-radius: 30px; height: 45px; font-size: 1.1rem; width: 100px; box-shadow: none;">
+-            Search
+-        </button>
+-    </form>
+-</div>
+-
+-
+-
+-</div>
+-										<div class="card-toolbar">
+-											<!--begin::Dropdown-->
+-											<div class="dropdown dropdown-inline mr-2" style="display:none">
+-												<button type="button" class="btn btn-light-primary font-weight-bolder dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+-												<span class="svg-icon svg-icon-md">
+-													<!--begin::Svg Icon | path:assets/media/svg/icons/Design/PenAndRuller.svg-->
+-													<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+-														<g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+-															<rect x="0" y="0" width="24" height="24" />
+-															<path d="M3,16 L5,16 C5.55228475,16 6,15.5522847 6,15 C6,14.4477153 5.55228475,14 5,14 L3,14 L3,12 L5,12 C5.55228475,12 6,11.5522847 6,11 C6,10.4477153 5.55228475,10 5,10 L3,10 L3,8 L5,8 C5.55228475,8 6,7.55228475 6,7 C6,6.44771525 5.55228475,6 5,6 L3,6 L3,4 C3,3.44771525 3.44771525,3 4,3 L10,3 C10.5522847,3 11,3.44771525 11,4 L11,19 C11,19.5522847 10.5522847,20 10,20 L4,20 C3.44771525,20 3,19.5522847 3,19 L3,16 Z" fill="#000000" opacity="0.3" />
+-															<path d="M16,3 L19,3 C20.1045695,3 21,3.8954305 21,5 L21,15.2485298 C21,15.7329761 20.8241635,16.200956 20.5051534,16.565539 L17.8762883,19.5699562 C17.6944473,19.7777745 17.378566,19.7988332 17.1707477,19.6169922 C17.1540423,19.602375 17.1383289,19.5866616 17.1237117,19.5699562 L14.4948466,16.565539 C14.1758365,16.200956 14,15.7329761 14,15.2485298 L14,5 C14,3.8954305 14.8954305,3 16,3 Z" fill="#000000" />
+-														</g>
+-													</svg>
+-													<!--end::Svg Icon-->
+-												</span>Export</button>
+-												<!--begin::Dropdown Menu-->
+-												<div class="dropdown-menu dropdown-menu-sm dropdown-menu-right">
+-													<!--begin::Navigation-->
+-													<ul class="navi flex-column navi-hover py-2">
+-														<li class="navi-header font-weight-bolder text-uppercase font-size-sm text-primary pb-2">Choose an option:</li>
+-														<li class="navi-item">
+-															<a href="#" class="navi-link">
+-																<span class="navi-icon">
+-																	<i class="la la-print"></i>
+-																</span>
+-																<span class="navi-text">Print</span>
+-															</a>
+-														</li>
+-														<li class="navi-item">
+-															<a href="#" class="navi-link">
+-																<span class="navi-icon">
+-																	<i class="la la-copy"></i>
+-																</span>
+-																<span class="navi-text">Copy</span>
+-															</a>
+-														</li>
+-														<li class="navi-item">
+-															<a href="#" class="navi-link">
+-																<span class="navi-icon">
+-																	<i class="la la-file-excel-o"></i>
+-																</span>
+-																<span class="navi-text">Excel</span>
+-															</a>
+-														</li>
+-														<li class="navi-item">
+-															<a href="#" class="navi-link">
+-																<span class="navi-icon">
+-																	<i class="la la-file-text-o"></i>
+-																</span>
+-																<span class="navi-text">CSV</span>
+-															</a>
+-														</li>
+-														<li class="navi-item">
+-															<a href="#" class="navi-link">
+-																<span class="navi-icon">
+-																	<i class="la la-file-pdf-o"></i>
+-																</span>
+-																<span class="navi-text">PDF</span>
+-															</a>
+-														</li>
+-													</ul>
+-													<!--end::Navigation-->
+-												</div>
+-												<!--end::Dropdown Menu-->
+-											</div>
+-											<!--end::Dropdown-->
+-											@can('Create Release')
+-											<!--begin::Button-->
+-											<a href='{{ url("$route/create") }}' class="btn btn-primary font-weight-bolder">
+-											<span class="svg-icon svg-icon-md">
+-												<!--begin::Svg Icon | path:assets/media/svg/icons/Design/Flatten.svg-->
+-												<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+-													<g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+-														<rect x="0" y="0" width="24" height="24" />
+-														<circle fill="#000000" cx="9" cy="15" r="6" />
+-														<path d="M8.8012943,7.00241953 C9.83837775,5.20768121 11.7781543,4 14,4 C17.3137085,4 20,6.6862915 20,10 C20,12.2218457 18.7923188,14.1616223 16.9975805,15.1987057 C16.9991904,15.1326658 17,15.0664274 17,15 C17,10.581722 13.418278,7 9,7 C8.93357256,7 8.86733422,7.00080962 8.8012943,7.00241953 Z" fill="#000000" opacity="0.3" />
+-													</g>
+-												</svg>
+-												<!--end::Svg Icon-->
+-											</span>New Record</a>
+-											<!--end::Button-->
+-											@endcan
+-										</div>
+-									</div>
+-									<div class="card-body">
+-										<!--begin: Datatable-->
+-										<table class="table table-separate table-head-custom table-checkable" id="kt_datatable4">
+-											<thead>
+-												<tr>
+-													<th>#</th>
+-
+-													<th>Release Name</th>	
+-													<th>Release Status</th>												
+-													<th>Actions</th>
+-												</tr>
+-											</thead>
+-											<tbody>
+-											@include("$view.loop")
+-											</tbody>
+-										</table>
+-										<!--end: Datatable-->
+-									</div>
+-								</div>
+-								{{ $collection->links() }}
+-								<!--end::Card-->
+-							</div>
+-							<!--end::Container-->
+-						</div>
+-						<!--end::Entry-->
+-					</div>
+-					<!--end::Content-->
+-					<script>
+-						document.getElementById('clearSearch').addEventListener('click', function () {
+-        // Redirect to the releases.index route
+-        window.location.href = "{{ route('releases.index') }}";
+-    });
+-$(document).ready(function() {
+-    if ($.fn.dataTable.isDataTable('#kt_datatable4')) {
+-        $('#kt_datatable4').DataTable().destroy();
+-    }
+-
+-    $('#kt_datatable4').DataTable({
+-        paging: false,
+-        searching: false,
+-        lengthChange: false
+-    });
+-
+-
+-	$('#searchInput').on('keyup', function() {
+-        table.search(this.value).draw();
+-    });
+-
+-    // Clear search and reset table
+-    $('#clearSearch').on('click', function() {
+-        $('#searchInput').val(''); // Clear input
+-        table.search('').draw(); // Reset DataTable search
+-    });
+-});
+-
+-
+-
+-    </script>
+-
+-@endsection
+\ No newline at end of file
++        <div class="d-flex flex-column-fluid">
++            <div class="container">
++                <div class="card card-custom gutter-b">
++                    <div class="card-header flex-wrap border-0 pt-6 pb-0">
++                        <div class="card-title">
++                            <h3 class="card-label">Release List
++                                <span class="d-block text-muted pt-2 font-size-sm">Manage your Releases</span>
++                            </h3>
++                        </div>
++                        <div class="card-toolbar">
++                            @can('Create Release')
++                                <a href='{{ url("$route/create") }}' class="btn btn-primary font-weight-bolder">
++                                    <i class="la la-plus"></i> New Release
++                                </a>
++                            @endcan
++                        </div>
++                    </div>
++                    <div class="card-body">
++                        <div class="table-responsive">
++                            <table class="table table-head-custom table-vertical-center" id="releaseTable">
++                                <thead>
++                                <tr class="text-uppercase">
++                                    <th style="min-width: 50px">Release #</th>
++                                    <th style="min-width: 200px">Release Name</th>
++                                    <th style="min-width: 150px">Vendor Name</th>
++                                    <th style="min-width: 100px">Status</th>
++                                    <th style="min-width: 120px">Go Live Date</th>
++                                    <th style="min-width: 120px">Start Date</th>
++                                    <th class="text-right" style="min-width: 100px">Actions</th>
++                                </tr>
++                                </thead>
++                                <tbody>
++                                @include("$view.loop")
++                                </tbody>
++                            </table>
++                        </div>
++                        <div class="d-flex justify-content-end mt-3">
++                            {{ $collection->links() }}
++                        </div>
++                    </div>
++                </div>
++            </div>
++        </div>
++    </div>
++@endsection
+diff --git a/resources/views/releases/loop.blade.php b/resources/views/releases/loop.blade.php
+index dc2a701..0867848 100644
+--- a/resources/views/releases/loop.blade.php
++++ b/resources/views/releases/loop.blade.php
+@@ -1,38 +1,42 @@
+-@if($collection)
+-
+-@foreach ($collection as $item)
+-                                <tr>
+-                                    <th scope="row">{{ $item->id }}</th>
+-                                    <td>{{ $item->name }}</td>
+-                                    <td>{{ $item->status ? $item->status->status_name : "" }}</td>
+-								@can('Edit Release')
+-                                    <td>
+-										<a href='{{url("$route")}}/{{ $item->id }}/edit'  class="btn btn-sm btn-clean btn-icon mr-2" title="Edit Release">	                            <span class="svg-icon svg-icon-md">	                                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24px" height="24px" viewBox="0 0 24 24" version="1.1">	                                    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">	                                        <rect x="0" y="0" width="24" height="24"></rect>	                                        <path d="M8,17.9148182 L8,5.96685884 C8,5.56391781 8.16211443,5.17792052 8.44982609,4.89581508 L10.965708,2.42895648 C11.5426798,1.86322723 12.4640974,1.85620921 13.0496196,2.41308426 L15.5337377,4.77566479 C15.8314604,5.0588212 16,5.45170806 16,5.86258077 L16,17.9148182 C16,18.7432453 15.3284271,19.4148182 14.5,19.4148182 L9.5,19.4148182 C8.67157288,19.4148182 8,18.7432453 8,17.9148182 Z" fill="#000000" fill-rule="nonzero" transform="translate(12.000000, 10.707409) rotate(-135.000000) translate(-12.000000, -10.707409) "></path>	                                        <rect fill="#000000" opacity="0.3" x="5" y="20" width="15" height="2" rx="1"></rect>	                                    </g>	                                </svg>	                            </span>	                        </a>
+-                                    </td>
+-								@endcan 
+-								
+-								@can('Show Release')
+-                                    <td>
+-										<a href='{{ url("$route") }}/show_release/{{ $item->id }}' class="btn btn-sm btn-clean btn-icon mr-2" title="Show details">
+-                                            <span class="svg-icon svg-icon-md">
+-                                                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+-                                                    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+-                                                        <rect x="0" y="0" width="24" height="24"></rect>
+-                                                        <path d="M12,2 C6.477,2 2,6.477 2,12 C2,17.523 6.477,22 12,22 C17.523,22 22,17.523 22,12 C22,6.477 17.523,2 12,2 Z M12,19.5 C7.805,19.5 4.5,16.195 4.5,12 C4.5,7.805 7.805,4.5 12,4.5 C16.195,4.5 19.5,7.805 19.5,12 C19.5,16.195 16.195,19.5 12,19.5 Z M11,16 L13,16 L13,13 L11,13 L11,16 Z M11,11 L13,11 L13,8 L11,8 L11,11 Z" fill="#000000"></path>
+-                                                    </g>
+-                                                </svg>
+-                                            </span>
+-                                        </a>
+-										</td>
+-								@endcan 
+-								 
+-								
+-                            </tr>
+-                            @endforeach
+-@else
+-
+-<tr>
+-    <td colspan="7" style="text-align:center">No Data Found</td>                                   
+-</tr>
+-
+-@endif
+\ No newline at end of file
++@forelse ($collection as $item)
++    <tr>
++        <td>
++            <span class="text-dark-75 font-weight-bolder d-block font-size-lg">{{ $item->id }}</span>
++        </td>
++        <td>
++            <a href='{{ url("$route") }}/{{ $item->id }}' class="text-dark-75 text-hover-primary font-weight-bold font-size-lg">{{ $item->name }}</a>
++        </td>
++        <td>
++            <span class="text-dark-75 d-block font-size-lg">{{ $item->vendor->name ?? 'N/A' }}</span>
++        </td>
++        <td>
++            <span class="label label-lg label-light-primary label-inline font-weight-bold py-4">{{ $item->status->status_name ?? 'N/A' }}</span>
++        </td>
++        <td>
++            <span class="text-dark-75 d-block font-size-lg">{{ $item->go_live_planned_date ?? 'N/A' }}</span>
++        </td>
++        <td>
++            <span class="text-dark-75 d-block font-size-lg">{{ $item->release_start_date ?? 'N/A' }}</span>
++        </td>
++        <td class="text-right">
++            @can('Show Release')
++                <a href='{{ url("$route") }}/{{ $item->id }}' class="btn btn-icon btn-light btn-hover-primary btn-sm mr-2" title="View">
++                    <span class="svg-icon svg-icon-md svg-icon-primary">
++                        <i class="la la-eye"></i>
++                    </span>
++                </a>
++            @endcan
++            @can('Edit Release')
++                <a href='{{ url("$route") }}/{{ $item->id }}/edit' class="btn btn-icon btn-light btn-hover-primary btn-sm" title="Edit">
++                    <span class="svg-icon svg-icon-md svg-icon-primary">
++                        <i class="la la-edit"></i>
++                    </span>
++                </a>
++            @endcan
++        </td>
++    </tr>
++@empty
++    <tr>
++        <td colspan="7" class="text-center text-muted font-weight-bold py-5">No Releases found.</td>
++    </tr>
++@endforelse
+diff --git a/resources/views/releases/release_logs.blade.php b/resources/views/releases/release_logs.blade.php
+deleted file mode 100644
+index 8e40804..0000000
+--- a/resources/views/releases/release_logs.blade.php
++++ /dev/null
+@@ -1,116 +0,0 @@
+-
+-@extends('layouts.app')
+-
+-@section('content')
+-
+-<!--begin::Content-->
+-<div class="content d-flex flex-column flex-column-fluid" id="kt_content">
+-						<!--begin::Subheader-->
+-						<div class="subheader py-2 py-lg-12 subheader-transparent" id="kt_subheader">
+-							<div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+-								<!--begin::Info-->
+-								<div class="d-flex align-items-center flex-wrap mr-1">
+-									<!--begin::Heading-->
+-									<div class="d-flex flex-column">
+-										<!--begin::Title-->
+-										<h2 class="text-white font-weight-bold my-2 mr-5">Release Logs </h2>
+-										<!--end::Title-->
+-										
+-										
+-									</div>
+-									<!--end::Heading-->
+-								</div>
+-								<!--end::Info-->
+-								
+-							</div>
+-						</div>
+-						<!--end::Subheader-->
+-						<!--begin::Entry-->
+-						<div class="d-flex flex-column-fluid">
+-							<!--begin::Container-->
+-							<div class="container">
+-								<div class="row">
+-									
+-                                    
+-									<div class="col-md-12">
+-										
+-
+-<!--begin::Card-->
+-										<div class="card card-custom gutter-b">
+-											
+-											<div class="card-body">
+-												<!--begin::Example-->
+-												<div class="example example-basic">
+-													<div class="example-preview">
+-														<!--begin::Timeline-->
+-														<div class="timeline timeline-5">
+-															<div class="timeline-items">
+-																<!--begin::Item-->
+-																
+-																@foreach($logs as $key=>$log)
+-																<div class="timeline-item">
+-																	<!--begin::Icon-->
+-																	@if($key % 2 == 0)
+-																	<div class="timeline-media bg-light-primary">
+-																		<span class="svg-icon svg-icon-primary svg-icon-md">
+-																			<!--begin::Svg Icon | path:assets/media/svg/icons/Communication/Group-chat.svg-->
+-																			<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+-																				<g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+-																					<rect x="0" y="0" width="24" height="24" />
+-																					<path d="M16,15.6315789 L16,12 C16,10.3431458 14.6568542,9 13,9 L6.16183229,9 L6.16183229,5.52631579 C6.16183229,4.13107011 7.29290239,3 8.68814808,3 L20.4776218,3 C21.8728674,3 23.0039375,4.13107011 23.0039375,5.52631579 L23.0039375,13.1052632 L23.0206157,17.786793 C23.0215995,18.0629336 22.7985408,18.2875874 22.5224001,18.2885711 C22.3891754,18.2890457 22.2612702,18.2363324 22.1670655,18.1421277 L19.6565168,15.6315789 L16,15.6315789 Z" fill="#000000" />
+-																					<path d="M1.98505595,18 L1.98505595,13 C1.98505595,11.8954305 2.88048645,11 3.98505595,11 L11.9850559,11 C13.0896254,11 13.9850559,11.8954305 13.9850559,13 L13.9850559,18 C13.9850559,19.1045695 13.0896254,20 11.9850559,20 L4.10078614,20 L2.85693427,21.1905292 C2.65744295,21.3814685 2.34093638,21.3745358 2.14999706,21.1750444 C2.06092565,21.0819836 2.01120804,20.958136 2.01120804,20.8293182 L2.01120804,18.32426 C1.99400175,18.2187196 1.98505595,18.1104045 1.98505595,18 Z M6.5,14 C6.22385763,14 6,14.2238576 6,14.5 C6,14.7761424 6.22385763,15 6.5,15 L11.5,15 C11.7761424,15 12,14.7761424 12,14.5 C12,14.2238576 11.7761424,14 11.5,14 L6.5,14 Z M9.5,16 C9.22385763,16 9,16.2238576 9,16.5 C9,16.7761424 9.22385763,17 9.5,17 L11.5,17 C11.7761424,17 12,16.7761424 12,16.5 C12,16.2238576 11.7761424,16 11.5,16 L9.5,16 Z" fill="#000000" opacity="0.3" />
+-																				</g>
+-																			</svg>
+-																			<!--end::Svg Icon-->
+-																		</span>
+-																	</div>
+-																	<!--end::Icon-->
+-																	@else
+-																		<!--begin::Icon-->
+-																	<div class="timeline-media bg-light-danger">
+-																		<span class="svg-icon svg-icon-danger svg-icon-md">
+-																			<!--begin::Svg Icon | path:assets/media/svg/icons/Communication/Add-user.svg-->
+-																			<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+-																				<g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+-																					<polygon points="0 0 24 0 24 24 0 24" />
+-																					<path d="M18,8 L16,8 C15.4477153,8 15,7.55228475 15,7 C15,6.44771525 15.4477153,6 16,6 L18,6 L18,4 C18,3.44771525 18.4477153,3 19,3 C19.5522847,3 20,3.44771525 20,4 L20,6 L22,6 C22.5522847,6 23,6.44771525 23,7 C23,7.55228475 22.5522847,8 22,8 L20,8 L20,10 C20,10.5522847 19.5522847,11 19,11 C18.4477153,11 18,10.5522847 18,10 L18,8 Z M9,11 C6.790861,11 5,9.209139 5,7 C5,4.790861 6.790861,3 9,3 C11.209139,3 13,4.790861 13,7 C13,9.209139 11.209139,11 9,11 Z" fill="#000000" fill-rule="nonzero" opacity="0.3" />
+-																					<path d="M0.00065168429,20.1992055 C0.388258525,15.4265159 4.26191235,13 8.98334134,13 C13.7712164,13 17.7048837,15.2931929 17.9979143,20.2 C18.0095879,20.3954741 17.9979143,21 17.2466999,21 C13.541124,21 8.03472472,21 0.727502227,21 C0.476712155,21 -0.0204617505,20.45918 0.00065168429,20.1992055 Z" fill="#000000" fill-rule="nonzero" />
+-																				</g>
+-																			</svg>
+-																			<!--end::Svg Icon-->
+-																		</span>
+-																	</div>
+-																	<!--end::Icon-->
+-																	@endif	
+-																	<!--begin::Info-->
+-																	<div class="timeline-desc timeline-desc-light-primary">
+-																		<span class="font-weight-bolder text-primary">{{$log->user->user_name}} <br />
+-																		{{$log->created_at->format('d-m-y ,g:i A')}}</span>
+-																		<p class="font-weight-normal text-dark-50 pb-2">{{$log->log_text}}</p>
+-																	</div>
+-																	<!--end::Info-->
+-																</div>
+-																<!--end::Item-->
+-																
+-																@endforeach
+-																
+-																
+-																
+-													</div>
+-												</div>
+-												<!--end::Example-->
+-												
+-												<!--end::Code example-->
+-											</div>
+-										</div>
+-                                        
+-									</div>
+-								</div>
+-							</div>
+-							<!--end::Container-->
+-						</div>
+-						<!--end::Entry-->
+-					</div>
+-					<!--end::Content-->
+-
+-@endsection
+diff --git a/resources/views/releases/release_show.blade.php b/resources/views/releases/release_show.blade.php
+index b68fafe..a38c9fd 100644
+--- a/resources/views/releases/release_show.blade.php
++++ b/resources/views/releases/release_show.blade.php
+@@ -1,67 +1,216 @@
+-
+-
+ @extends('layouts.app')
+ 
+ @section('content')
+-
+-<!--begin::Content-->
+ <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
+-						<!--begin::Subheader-->
+-						<div class="subheader py-2 py-lg-12 subheader-transparent" id="kt_subheader">
+-							<div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
+-								<!--begin::Info-->
+-								<div class="d-flex align-items-center flex-wrap mr-1">
+-									<!--begin::Heading-->
+-									<div class="d-flex flex-column">
+-										<!--begin::Title-->
+-										<h2 class="text-white font-weight-bold my-2 mr-5">{{$title}}</h2>
+-										<!--end::Title-->
+-										
+-									</div>
+-									<!--end::Heading-->
+-								</div>
+-								<!--end::Info-->
+-								
+-							</div>
+-						</div>
+-						<!--end::Subheader-->
+-						<!--begin::Entry-->
+-						<div class="d-flex flex-column-fluid">
+-							<!--begin::Container-->
+-							<div class="container">
+-								<div class="row">
+-									
+-                                    
+-									<div class="col-md-12">
+-										
++    <div class="subheader py-2 py-lg-12 subheader-transparent" id="kt_subheader">
++        <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
++            <div class="d-flex align-items-center flex-wrap mr-1">
++                <div class="d-flex flex-column">
++                    <h2 class="text-white font-weight-bold my-2 mr-5">{{ $title }}</h2>
++                </div>
++            </div>
++        </div>
++    </div>
++
++    <div class="d-flex flex-column-fluid">
++        <div class="container">
++            <div class="card card-custom gutter-b">
++                <div class="card-header">
++                   <div class="card-title">
++                        <h3 class="card-label">Release Details: {{ $row->name }}</h3>
++                    </div>
++                    <div class="card-toolbar">
++                        <a href="{{ route('releases.edit', $row->id) }}" class="btn btn-warning font-weight-bolder mr-2">
++                            <i class="la la-edit"></i> Edit
++                        </a>
++                        <a href="{{ route('releases.index') }}" class="btn btn-secondary font-weight-bolder">
++                            <i class="la la-arrow-left"></i> Back
++                        </a>
++                    </div>
++                </div>
++                <div class="card-body">
++                    <!-- General Info -->
++                    <div class="row mb-5">
++                       <div class="col-md-6">
++                           <label class="font-weight-bold">Status:</label>
++                           <span class="label label-lg label-light-primary label-inline font-weight-bold ml-2">{{ $row->status->status_name ?? 'N/A' }}</span>
++                       </div>
++                    </div>
++                    
++                    <div class="row">
++                        <div class="col-md-6">
++                            <div class="form-group">
++                                <label class="font-weight-bold">Vendor Name:</label>
++                                <p class="form-control-plaintext text-muted">{{ $row->vendor_name ?? 'N/A' }}</p>
++                            </div>
++                        </div>
++                        <div class="col-md-6">
++                            <div class="form-group">
++                                <label class="font-weight-bold">Priority:</label>
++                                <p class="form-control-plaintext text-muted">{{ $row->priority ?? 'N/A' }}</p>
++                            </div>
++                        </div>
++                    </div>
++                    <div class="row">
++                         <div class="col-md-6">
++                            <div class="form-group">
++                                <label class="font-weight-bold">Release Start Date:</label>
++                                <p class="form-control-plaintext text-muted">{{ $row->release_start_date ?? 'N/A' }}</p>
++                            </div>
++                        </div>
++                        <div class="col-md-6">
++                             <div class="form-group">
++                                <label class="font-weight-bold">Go Live Planned Date:</label>
++                                <p class="form-control-plaintext text-muted">{{ $row->go_live_planned_date ?? 'N/A' }}</p>
++                            </div>
++                        </div>
++                    </div>
++                     <div class="row">
++                        <div class="col-md-12">
++                            <div class="form-group">
++                                <label class="font-weight-bold">Description:</label>
++                                <p class="form-control-plaintext text-muted">{{ $row->release_description ?? 'N/A' }}</p>
++                            </div>
++                        </div>
++                    </div>
++                    
++                    <div class="separator separator-dashed my-8"></div>
++                    
++                    <!-- Creator Info -->
++                    <h4 class="font-weight-bold mb-4">Creator Information</h4>
++                     <div class="row">
++                        <div class="col-md-6">
++                            <div class="form-group">
++                                <label class="font-weight-bold">Creator RTM Name:</label>
++                                <p class="form-control-plaintext text-muted">{{ $row->creator_rtm_name ?? 'N/A' }}</p>
++                            </div>
++                        </div>
++                        <div class="col-md-6">
++                             <div class="form-group">
++                                <label class="font-weight-bold">RTM Email:</label>
++                                <p class="form-control-plaintext text-muted">{{ $row->rtm_email ?? 'N/A' }}</p>
++                            </div>
++                        </div>
++                    </div>
++                </div>
++            </div>
+ 
++            <!-- Technical Feedback Table -->
++            <div class="card card-custom gutter-b">
++                <div class="card-header">
++                    <div class="card-title">
++                        <h3 class="card-label">Technical Feedback</h3>
++                    </div>
++                </div>
++                <div class="card-body">
++                    <!-- Assuming feedback logs are stored in ReleaseLogs or similar, need to confirm exact source. 
++                         For now, I will display ReleaseLogs filtered or just all logs if no specific feedback table exists. 
++                         The user asked for 'Table like CR Page'. I'll adapt the structure. -->
++                    <div class="table-responsive">
++                        <table class="table table-head-custom table-vertical-center" id="feedback_table">
++                            <thead>
++                                <tr>
++                                    <th>User</th>
++                                    <th>Feedback/Log</th>
++                                    <th>Date</th>
++                                </tr>
++                            </thead>
++                            <tbody>
++                                @if(isset($logs))
++                                    @foreach($logs as $log)
++                                    <tr>
++                                        <td>{{ $log->user->user_name ?? 'System' }}</td> 
++                                        <!-- Assuming ReleaseLogs has user method and log_text -->
++                                        <td>{{ $log->log_text }}</td>
++                                        <td>{{ $log->created_at }}</td>
++                                    </tr>
++                                    @endforeach
++                                @endif
++                            </tbody>
++                        </table>
++                    </div>
++                </div>
++            </div>
+ 
+-										<!--begin::Card-->
+-										<div class="card card-custom gutter-b example example-compact">
+-											<div class="card-header">
+-												<h3 class="card-title">Show  {{ $form_title }}</h3>
+-												
+-											</div>
+-											<!--begin::Form-->
+-											<form class="form" action='{{url("$route")}}/{{ $row->id }}' method="post" enctype="multipart/form-data">
+-                                                {{ csrf_field() }}
+-                                                {{ method_field('PATCH') }}
+-                                                <input type="hidden" name="id" value="{{ $row->id }}">
+-                                                @include("$view.form")
+-												 
+-											</form>
+-											<!--end::Form-->
+-										</div>
+-										<!--end::Card-->
++            <!-- Attachments Section -->
++            <div class="card card-custom gutter-b">
++                 <div class="card-header">
++                    <div class="card-title">
++                        <h3 class="card-label">Technical Attachments</h3>
++                    </div>
++                    <div class="card-toolbar">
++                         <!-- Trigger Modal or Inline Form? CR page uses inline dropzone. -->
++                    </div>
++                </div>
++                <div class="card-body">
++                     <!-- Upload Form -->
++                     <form class="form mb-4" id="attachmentForm">
++                        <div class="form-group">
++                             <label>Upload Attachment:</label>
++                             <div class="dropzone" id="kt_dropzone_3">
++                                 <div class="dropzone-msg dz-message needsclick">
++                                    <h3 class="dropzone-msg-title">Drop files here or click to upload.</h3>
++                                </div>
++                             </div>
++                        </div>
++                     </form>
+ 
+-                                        
+-									</div>
+-								</div>
+-							</div>
+-							<!--end::Container-->
+-						</div>
+-						<!--end::Entry-->
+-					</div>
+-					<!--end::Content-->
++                     <!-- Attachments List -->
++                     <div class="table-responsive">
++                         <table class="table table-bordered">
++                             <thead>
++                                 <tr>
++                                     <th>File Name</th>
++                                     <th>Uploaded By</th>
++                                     <th>Date</th>
++                                     <th>Action</th>
++                                 </tr>
++                             </thead>
++                             <tbody>
++                                 @foreach($row->attachments as $attachment)
++                                 <tr>
++                                     <td>{{ $attachment->file_name }}</td>
++                                     <td>{{ $attachment->user->name ?? 'Unknown' }}</td>
++                                     <td>{{ $attachment->created_at }}</td>
++                                     <td>
++                                         <a href="{{ route('releases.downloadAttachment', $attachment->id) }}" class="btn btn-sm btn-light-primary font-weight-bold">
++                                             <i class="la la-download"></i> Download
++                                         </a>
++                                     </td>
++                                 </tr>
++                                 @endforeach
++                             </tbody>
++                         </table>
++                     </div>
++                </div>
++            </div>
++
++        </div>
++    </div>
++</div>
++
++@endsection
+ 
++@section('scripts')
++<script>
++    // Dropzone Logic
++    $('#kt_dropzone_3').dropzone({
++        url: "{{ route('releases.uploadAttachment') }}", // Need to define this route
++        paramName: "file", 
++        maxFiles: 10,
++        maxFilesize: 10, // MB
++        addRemoveLinks: true,
++        acceptedFiles: "image/*,application/pdf,.doc,.docx,.xls,.xlsx,.zip",
++        headers: {
++            'X-CSRF-TOKEN': "{{ csrf_token() }}"
++        },
++        sending: function(file, xhr, formData) {
++            formData.append("release_id", "{{ $row->id }}");
++        },
++        success: function(file, response) {
++            // Reload page or append row
++            location.reload(); 
++        }
++    });
++</script>
+ @endsection
+diff --git a/resources/views/releases/show.blade.php b/resources/views/releases/show.blade.php
+index b65fdf8..48100cb 100644
+--- a/resources/views/releases/show.blade.php
++++ b/resources/views/releases/show.blade.php
+@@ -1,49 +1,94 @@
+-@extends('admin.layouts.index_layout',['title' => __("admin.$route") ])
++@extends('layouts.app')
+ 
+ @section('content')
+-
+-@if( session('status') )
+-<div class="m-alert m-alert--icon m-alert--air alert alert-success alert-dismissible fade show" role="alert">
+-    {{-- <div class="m-alert__icon">
+-        <i class="la la-warning"></i>
+-    </div> --}}
+-    <div class="m-alert__text">
+-        <strong>{{ session('status') }}</strong>
+-    </div>
+-    <div class="m-alert__close">
+-        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+-        </button>
+-    </div>
+-</div>
+-@endif
+-
+-<!--begin::Portlet-->
+-<div class="m-portlet">
+-    <div class="m-portlet__head">
+-        <div class="m-portlet__head-caption">
+-            <div class="m-portlet__head-name">
+-                <span class="m-portlet__head-icon m--hide">
+-                    <i class="la la-gear"></i>
+-                </span>
+-                <h3 class="m-portlet__head-text">
+-                   {{ __('admin.Show') }} 
+-                </h3>
++<div class="content d-flex flex-column flex-column-fluid" id="kt_content">
++    <!--begin::Subheader-->
++    <div class="subheader py-2 py-lg-12 subheader-transparent" id="kt_subheader">
++        <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
++            <!--begin::Info-->
++            <div class="d-flex align-items-center flex-wrap mr-1">
++                <!--begin::Heading-->
++                <div class="d-flex flex-column">
++                    <!--begin::Title-->
++                    <h2 class="text-white font-weight-bold my-2 mr-5">{{ $title }}</h2>
++                    <!--end::Title-->
++                </div>
++                <!--end::Heading-->
+             </div>
++            <!--end::Info-->
+         </div>
+     </div>
++    <!--end::Subheader-->
+ 
+-    <!--begin::Form-->
+-    <form class="m-form" action='{{url("admin/$route")}}/{{ $row['id'] }}' method="post" enctype="multipart/form-data">
++    <!--begin::Entry-->
++    <div class="d-flex flex-column-fluid">
++        <!--begin::Container-->
++        <div class="container">
++            <div class="row">
++                <div class="col-md-12">
++                    <!--begin::Card-->
++                    <div class="card card-custom gutter-b example example-compact">
++                        <div class="card-header d-flex justify-content-between align-items-center">
++                            <h3 class="card-title m-0">View KPI</h3>
++                            <button type="button" id="openModal" class="btn btn-primary">View History Logs</button>
++                        </div>
++                        <div class="card-body">
++                            @include("$view.form")
++                        </div>
++                        <div class="card-footer">
++                            <a href="{{ route("$route.index") }}" class="btn btn-light-primary font-weight-bold">Back</a>
++                        </div>
++                    </div>
++                    <!--end::Card-->
++                </div>
++            </div>
+ 
+-            {{ csrf_field() }}
+-            {{ method_field('PATCH') }}
+-            <input type="hidden" name="id" value="{{$row['id']}}">
+-            @include("admin.$view.form")
+-    </form>
++            <div class="row">
++                <div class="col-md-12">
++                    @include("kpis.comments_history")
++                </div>
++            </div>
+ 
+-    <!--end::Form-->
++            <div class="row">
++                <div class="col-md-12">
++                    @if(($row->classification ?? null) === 'PM')
++                        @include("kpis.related_projects")
++                    @else
++                        @include("kpis.related_crs")
++                    @endif
++                </div>
++            </div>
++
++            <div class="row">
++                <div class="col-md-12">
++                    @include("kpis.logs")
++                </div>
++            </div>
++        </div>
++        <!--end::Container-->
++    </div>
++    <!--end::Entry-->
+ </div>
++@endsection
++
++@push('script')
++    <script>
++        var modal = document.getElementById("modal");
++        var btn = document.getElementById("openModal");
++        var closeBtn = document.getElementById("close_logs");
++
++        btn.onclick = function () {
++            modal.style.display = "block";
++        };
+ 
+-<!--end::Portlet-->
++        closeBtn.onclick = function () {
++            modal.style.display = "none";
++        };
+ 
+-@endsection
+\ No newline at end of file
++        window.onclick = function (event) {
++            if (event.target == modal) {
++                modal.style.display = "none";
++            }
++        };
++    </script>
++@endpush
+\ No newline at end of file

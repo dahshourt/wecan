@@ -18,6 +18,7 @@ use App\Models\ApplicationImpact;
 use App\Models\Change_request;
 use App\Models\Change_request_statuse;
 use App\Models\ChangeRequestTechnicalTeam;
+use App\Services\ChangeRequest\ChangeRequestStatusService;
 use App\Models\Group;
 use App\Models\ManDaysLog;
 use App\Models\NewWorkFlow;
@@ -39,6 +40,7 @@ class ChangeRequestService
     private $custom_field_group_type;
     private $applications;
     private $defects;
+    private $changeRequestStatusService;
 
     public function __construct(
         DefectFactory $defect,
@@ -48,7 +50,8 @@ class ChangeRequestService
         AttachmetsCRSFactory $attachments,
         Workflow_type_factory $workflow_type,
         CustomFieldGroupTypeFactory $custom_field_group_type,
-        ApplicationFactory $applications
+        ApplicationFactory $applications,
+        ChangeRequestStatusService $changeRequestStatusService
     ) {
         $this->changerequest = $changerequest::index();
         $this->defects = $defect::index();
@@ -58,6 +61,7 @@ class ChangeRequestService
         $this->attachments = $attachments::index();
         $this->custom_field_group_type = $custom_field_group_type::index();
         $this->applications = $applications::index();
+        $this->changeRequestStatusService = $changeRequestStatusService;
     }
 
     public function createChangeRequest(array $data)

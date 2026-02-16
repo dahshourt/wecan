@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Releases;
 
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ReleaseRequest extends FormRequest
@@ -29,7 +28,6 @@ class ReleaseRequest extends FormRequest
         }
 
         return $this->updateRules();
-
     }
 
     /**
@@ -41,15 +39,17 @@ class ReleaseRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'unique:releases,name'],
-            'go_live_planned_date' => ['sometimes', 'nullable', 'date'],
-            'planned_start_iot_date' => ['sometimes', 'nullable', 'date'],
-            'planned_end_iot_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:planned_start_iot_date'],
-            'planned_start_e2e_date' => ['sometimes', 'nullable', 'date'],
-            'planned_end_e2e_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:planned_start_e2e_date'],
-            'planned_start_uat_date' => ['sometimes', 'nullable', 'date'],
-            'planned_end_uat_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:planned_start_uat_date'],
-            'planned_start_smoke_test_date' => ['sometimes', 'nullable', 'date'],
-            'planned_end_smoke_test_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:planned_start_smoke_test_date'],
+            'vendor_id' => ['required', 'exists:vendors,id'],
+            'priority_id' => ['nullable', 'exists:priorities,id'],
+            'target_system_id' => ['nullable', 'exists:applications,id'],
+            'responsible_rtm_id' => ['nullable', 'exists:users,id'],
+            'creator_rtm_name' => ['required', 'string', 'max:255'],
+            'rtm_email' => ['required', 'email', 'max:255'],
+            'release_description' => ['nullable', 'string'],
+            'release_start_date' => ['nullable', 'date'],
+            'go_live_planned_date' => ['nullable', 'date'],
+            'technical_feedback' => ['nullable', 'string'],
+            'technical_attachment' => ['nullable', 'file', 'max:10240'],
         ];
     }
 
@@ -61,16 +61,33 @@ class ReleaseRequest extends FormRequest
     public function updateRules()
     {
         return [
-            'name' => ['required', 'string', 'unique:releases,name,' . $this->release],
-            'go_live_planned_date' => ['sometimes', 'nullable', 'date'],
-            'planned_start_iot_date' => ['sometimes', 'nullable', 'date'],
-            'planned_end_iot_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:planned_start_iot_date'],
-            'planned_start_e2e_date' => ['sometimes', 'nullable', 'date'],
-            'planned_end_e2e_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:planned_start_e2e_date'],
-            'planned_start_uat_date' => ['sometimes', 'nullable', 'date'],
-            'planned_end_uat_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:planned_start_uat_date'],
-            'planned_start_smoke_test_date' => ['sometimes', 'nullable', 'date'],
-            'planned_end_smoke_test_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:planned_start_smoke_test_date'],
+            // Planning Details
+            'release_description' => ['nullable', 'string'],
+            'priority_id' => ['nullable', 'exists:priorities,id'],
+            'release_start_date' => ['nullable', 'date'],
+            'go_live_planned_date' => ['nullable', 'date'],
+            'responsible_rtm_id' => ['nullable', 'exists:users,id'],
+
+            // Testing Schedule Dates
+            'atp_review_start_date' => ['nullable', 'date'],
+            'atp_review_end_date' => ['nullable', 'date', 'after_or_equal:atp_review_start_date'],
+            'vendor_internal_test_start_date' => ['nullable', 'date'],
+            'vendor_internal_test_end_date' => ['nullable', 'date', 'after_or_equal:vendor_internal_test_start_date'],
+            'iot_start_date' => ['nullable', 'date'],
+            'iot_end_date' => ['nullable', 'date', 'after_or_equal:iot_start_date'],
+            'e2e_start_date' => ['nullable', 'date'],
+            'e2e_end_date' => ['nullable', 'date', 'after_or_equal:e2e_start_date'],
+            'uat_start_date' => ['nullable', 'date'],
+            'uat_end_date' => ['nullable', 'date', 'after_or_equal:uat_start_date'],
+            'smoke_test_start_date' => ['nullable', 'date'],
+            'smoke_test_end_date' => ['nullable', 'date', 'after_or_equal:smoke_test_start_date'],
+
+            // Technical
+            'technical_feedback' => ['nullable', 'string'],
+            'technical_attachment' => ['nullable', 'file', 'max:10240'],
+
+            // Status (only sent when status is changing)
+            'status' => ['nullable', 'exists:release_statuses,id'],
         ];
     }
 
@@ -79,8 +96,25 @@ class ReleaseRequest extends FormRequest
      *
      * @return array
      */
-    // public function attributes()
-    // {
-
-    // }
+    public function attributes()
+    {
+        return [
+            'priority_id' => 'Priority',
+            'responsible_rtm_id' => 'Responsible RTM',
+            'release_start_date' => 'Release Start Date',
+            'go_live_planned_date' => 'Go Live Planned Date',
+            'atp_review_start_date' => 'ATP Review Start Date',
+            'atp_review_end_date' => 'ATP Review End Date',
+            'vendor_internal_test_start_date' => 'Vendor Internal Test Start Date',
+            'vendor_internal_test_end_date' => 'Vendor Internal Test End Date',
+            'iot_start_date' => 'IOT Start Date',
+            'iot_end_date' => 'IOT End Date',
+            'e2e_start_date' => 'E2E Start Date',
+            'e2e_end_date' => 'E2E End Date',
+            'uat_start_date' => 'UAT Start Date',
+            'uat_end_date' => 'UAT End Date',
+            'smoke_test_start_date' => 'Smoke Test Start Date',
+            'smoke_test_end_date' => 'Smoke Test End Date',
+        ];
+    }
 }

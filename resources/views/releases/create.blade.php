@@ -30,7 +30,7 @@
 							<!--begin::Container-->
 							<div class="container">
 								<div class="row">
-									
+								
                                     
 									<div class="col-md-12">
 										
@@ -48,7 +48,7 @@
                                                 @include("$view.form")
 												<div class="card-footer">
 													<button type="submit" class="btn btn-success mr-2">Submit</button>
-													<a href="{{ route('stages.index') }}" class="btn btn-primary">cancel</a>
+													<a href="{{ route("$route.index") }}" class="btn btn-primary">cancel</a>
 												</div>
 											</form>
 											<!--end::Form-->

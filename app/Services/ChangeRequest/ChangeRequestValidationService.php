@@ -13,6 +13,7 @@ use App\Traits\ChangeRequest\ChangeRequestConstants;
 use Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use App\Events\ChangeRequestStatusUpdated;
 
 class ChangeRequestValidationService
 {
@@ -23,6 +24,8 @@ class ChangeRequestValidationService
     private const INACTIVE_STATUS = '0';
 
     private const COMPLETED_STATUS = '2';
+
+    private $active_flag = '0';
 
     public static array $ACTIVE_STATUS_ARRAY = [self::ACTIVE_STATUS, 1];
 
@@ -38,6 +41,8 @@ class ChangeRequestValidationService
      */
     public function handleTechnicalTeamValidation($id, $request): bool
     {
+        $statusService = new ChangeRequestStatusService();
+        $statusData = $statusService->extractStatusData($request);
 
         $newStatusId = $request->new_status_id ?? null;
         $oldStatusId = $request->old_status_id ?? null;
@@ -62,8 +67,12 @@ class ChangeRequestValidationService
         }
         $updateService = new ChangeRequestUpdateService();
         $updateService->mirrorCrStatusToTechStreams($id, (int) $workflow->workflowstatus[0]->to_status_id, null, 'actor');
+        
 
-        return $this->processTechnicalTeamStatus($technicalCr, $oldStatusData, $workflow, $technicalDefaultGroup, $request);
+        $this->processTechnicalTeamStatus($technicalCr, $oldStatusData, $workflow, $technicalDefaultGroup, $request);
+        //dd($cr, $statusData, $request, $this->active_flag);
+        event(new ChangeRequestStatusUpdated($cr, $statusData, $request, $this->active_flag));
+        return true;
     }
 
     /**
@@ -277,6 +286,7 @@ class ChangeRequestValidationService
                 Auth::id(),
                 '1'
             );
+            $this->active_flag = '1';
             $statusRepository = new ChangeRequestStatusRepository();
             $statusRepository->create($payload);
 
@@ -311,6 +321,7 @@ class ChangeRequestValidationService
                     Auth::id(),
                     '1'
                 );
+                $this->active_flag = '1';
                 $statusRepository = new ChangeRequestStatusRepository();
                 $statusRepository->create($payload);
 

@@ -26,8 +26,8 @@
                                 <!--begin::Header Nav-->
                                 <ul class="menu-nav">
                                     @can('Dashboard')
-                                        <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('dashboard') ? 'menu-item-active' : '' }}"
-                                            data-menu-toggle="click" aria-haspopup="true">
+                                        <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                            aria-haspopup="true">
                                             <a href="{{ url('/dashboard') }}" class="menu-link">
                                                 <span class="menu-text">Dashboard</span>
                                             </a>
@@ -35,8 +35,8 @@
                                     @endcan
 
                                     @can('Access Top Management CRS')
-                                        <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('top_management_crs') ? 'menu-item-active' : '' }}"
-                                            data-menu-toggle="click" aria-haspopup="true">
+                                        <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                            aria-haspopup="true">
                                             <a href="{{ url('top_management_crs') }}" class="menu-link">
                                                 <span class="menu-text">Top Management CRS</span>
                                             </a>
@@ -44,8 +44,8 @@
                                     @endcan
 
                                     @canany(['List KPIs', 'List Projects', 'List KPI Types', 'List KPI Pillars', 'List KPI Initiatives', 'List KPI Sub-Initiatives'])
-                                        <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('kpis*') || Request::routeIs('projects.index') ? 'menu-item-open menu-item-here' : '' }}"
-                                            data-menu-toggle="hover" aria-haspopup="true">
+                                        <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                            aria-haspopup="true">
                                             <a href="javascript:;" class="menu-link menu-toggle">
                                                 <span class="menu-text">KPIs</span>
                                                 <span class="menu-desc"></span>
@@ -54,8 +54,7 @@
                                             <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                                 <ul class="menu-subnav">
                                                     @can('List KPIs')
-                                                        <li class="menu-item {{ Request::is('kpis*') ? 'menu-item-active' : '' }}"
-                                                            aria-haspopup="true">
+                                                        <li class="menu-item" aria-haspopup="true">
                                                             <a href="{{ url('kpis') }}" class="menu-link">
                                                                 <span class="svg-icon menu-icon">
                                                                     <svg xmlns="http://www.w3.org/2000/svg"
@@ -79,8 +78,7 @@
                                                     @endcan
 
                                                     @can('List Projects')
-                                                        <li class="menu-item {{ Request::routeIs('projects.index') ? 'menu-item-active' : '' }}"
-                                                            aria-haspopup="true">
+                                                        <li class="menu-item" aria-haspopup="true">
                                                             <a href="{{ route('projects.index') }}" class="menu-link">
                                                                 <span class="svg-icon menu-icon">
                                                                     <svg xmlns="http://www.w3.org/2000/svg"
@@ -105,8 +103,8 @@
 
                                                     {{-- KPI Configurations Submenu --}}
                                                     @canany(['List KPI Types', 'List KPI Pillars', 'List KPI Initiatives', 'List KPI Sub-Initiatives'])
-                                                        <li class="menu-item menu-item-submenu {{ Request::routeIs('kpi-types*') || Request::routeIs('kpi-pillars*') || Request::routeIs('kpi-initiatives*') || Request::routeIs('kpi-sub-initiatives*') ? 'menu-item-open menu-item-here' : '' }}"
-                                                            data-menu-toggle="hover" aria-haspopup="true">
+                                                        <li class="menu-item menu-item-submenu" data-menu-toggle="hover"
+                                                            aria-haspopup="true">
                                                             <a href="javascript:;" class="menu-link menu-toggle">
                                                                 <span class="svg-icon menu-icon">
                                                                     <svg xmlns="http://www.w3.org/2000/svg"
@@ -131,8 +129,7 @@
                                                             <div class="menu-submenu menu-submenu-classic menu-submenu-right">
                                                                 <ul class="menu-subnav">
                                                                     @can('List KPI Types')
-                                                                        <li class="menu-item {{ Request::routeIs('kpi-types*') ? 'menu-item-active' : '' }}"
-                                                                            aria-haspopup="true">
+                                                                        <li class="menu-item" aria-haspopup="true">
                                                                             <a href="{{ route('kpi-types.index') }}"
                                                                                 class="menu-link">
                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -143,8 +140,7 @@
                                                                         </li>
                                                                     @endcan
                                                                     @can('List KPI Pillars')
-                                                                        <li class="menu-item {{ Request::routeIs('kpi-pillars*') ? 'menu-item-active' : '' }}"
-                                                                            aria-haspopup="true">
+                                                                        <li class="menu-item" aria-haspopup="true">
                                                                             <a href="{{ route('kpi-pillars.index') }}"
                                                                                 class="menu-link">
                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -155,8 +151,7 @@
                                                                         </li>
                                                                     @endcan
                                                                     @can('List KPI Initiatives')
-                                                                        <li class="menu-item {{ Request::routeIs('kpi-initiatives*') ? 'menu-item-active' : '' }}"
-                                                                            aria-haspopup="true">
+                                                                        <li class="menu-item" aria-haspopup="true">
                                                                             <a href="{{ route('kpi-initiatives.index') }}"
                                                                                 class="menu-link">
                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -167,8 +162,7 @@
                                                                         </li>
                                                                     @endcan
                                                                     @can('List KPI Sub-Initiatives')
-                                                                        <li class="menu-item {{ Request::routeIs('kpi-sub-initiatives*') ? 'menu-item-active' : '' }}"
-                                                                            aria-haspopup="true">
+                                                                        <li class="menu-item" aria-haspopup="true">
                                                                             <a href="{{ route('kpi-sub-initiatives.index') }}"
                                                                                 class="menu-link">
                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -189,8 +183,8 @@
 
                                     <!--check if the user have any of the below permissions -->
                                     @canany(['List Users', 'Access CustomFields', 'List Statuses', 'List Workflows', 'List Division', 'List Groups', 'List Roles', 'List Permissions', 'List Stages', 'List Parents', 'List HighLevelStatuses', 'List RejectionReasons', 'List Applications', 'List Hold Reasons'])
-                                    <li class="menu-item menu-item-submenu menu-item-rel{{ Request::is(['users*', 'statuses*', 'groups*', 'NewWorkFlowController*', 'division_manager*', 'applications*', 'roles*', 'permissions*', 'stages*', 'requester-department*', 'parents*', 'high_level_status*', 'rejection_reasons*', 'custom-fields*']) || Request::routeIs(['custom.fields*', 'directors*', 'units*', 'notification_templates*', 'notification_rules*', 'hold-reasons*']) ? 'menu-item-open menu-item-here' : '' }}"
-                                        data-menu-toggle="hover" aria-haspopup="true">
+                                    <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                        aria-haspopup="true">
                                         <a href="javascript:;" class="menu-link menu-toggle">
                                             <span class="menu-text">Settings</span>
                                             <span class="menu-desc"></span>
@@ -199,8 +193,7 @@
                                         <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                             <ul class="menu-subnav">
                                                 @can('List Users')
-                                                    <li class="menu-item {{ Request::is('users*') ? 'menu-item-active' : '' }}"
-                                                        aria-haspopup="true">
+                                                    <li class="menu-item" aria-haspopup="true">
                                                         <a href="{{ url('users') }}" class="menu-link">
                                                             <span class="svg-icon menu-icon">
                                                                 <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -226,8 +219,8 @@
                                                 @endcan
 
                                                 @canany(['Access CustomFields', 'List Custom Fields'])
-                                                                        <li class="menu-item menu-item-submenu {{ Request::routeIs(['custom-fields*', 'custom.fields*']) ? 'menu-item-open menu-item-here' : '' }}"
-                                                                            data-menu-toggle="hover" aria-haspopup="true">
+                                                                        <li class="menu-item menu-item-submenu" data-menu-toggle="hover"
+                                                                            aria-haspopup="true">
                                                                             <a href="javascript:;" class="menu-link menu-toggle">
                                                                                 <span class="svg-icon menu-icon">
                                                                                     <!--begin::Svg Icon | path:assets/media/svg/icons/Communication/Address-card.svg-->
@@ -250,7 +243,7 @@
                                                                             <div class="menu-submenu menu-submenu-classic menu-submenu-right">
                                                                                 <ul class="menu-subnav">
                                                                                     @can('List Custom Fields')
-                                                                                        <li class="menu-item menu-item-submenu menu-item-rel {{ Request::routeIs('custom-fields.index') ? 'menu-item-active' : '' }}"
+                                                                                        <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                             data-menu-toggle="click" aria-haspopup="true">
                                                                                             <a href="{{ route('custom-fields.index') }}"
                                                                                                 class="menu-link">
@@ -264,8 +257,7 @@
                                                                                     @endcan
 
                                                                                     @can('Access CustomFields')
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.create') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.create') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -274,8 +266,7 @@
                                                                                                 <span class="menu-text">Create CR CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.search') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.search') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -284,8 +275,7 @@
                                                                                                 <span class="menu-text">Search CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.special') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.special') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -294,8 +284,7 @@
                                                                                                 <span class="menu-text">Create CR special CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.view') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.view') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -304,8 +293,7 @@
                                                                                                 <span class="menu-text">View CR CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.special.view') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.special.view') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -314,8 +302,7 @@
                                                                                                 <span class="menu-text">View CR Special CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.viewupdate') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.viewupdate') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -324,8 +311,7 @@
                                                                                                 <span class="menu-text">Update CR CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.special.viewupdate') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.special.viewupdate') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -334,8 +320,7 @@
                                                                                                 <span class="menu-text">Update CR Special CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.special.viewsearch') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.special.viewsearch') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -344,8 +329,7 @@
                                                                                                 <span class="menu-text">Search Special CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.createCF') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.createCF') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -354,8 +338,7 @@
                                                                                                 <span class="menu-text">Search Result CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.special.viewresult') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.special.viewresult') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -365,8 +348,7 @@
                                                                                                     CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.special.viewadvanced') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.special.viewadvanced') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -375,8 +357,7 @@
                                                                                                 <span class="menu-text">Advanced Search CF</span>
                                                                                             </a>
                                                                                         </li>
-                                                                                        <li class="menu-item {{ Request::routeIs('custom.fields.viewCF') ? 'menu-item-active' : '' }}"
-                                                                                            aria-haspopup="true">
+                                                                                        <li class="menu-item" aria-haspopup="true">
                                                                                             <a href="{{ route('custom.fields.viewCF') }}"
                                                                                                 class="menu-link">
                                                                                                 <i class="menu-bullet menu-bullet-dot">
@@ -391,7 +372,7 @@
                                                                         </li>
                                                                         @endcan
                                                                         @can('List Statuses')
-                                                                            <li class="menu-item menu-item-submenu menu-item-rel{{ Request::is('statuses*') ? 'menu-item-active' : '' }}"
+                                                                            <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                 data-menu-toggle="click" aria-haspopup="true">
                                                                                 <a href="{{ url('statuses') }}" class="menu-link">
                                                                                     <span class="svg-icon menu-icon">
@@ -419,7 +400,7 @@
                                                                         @endcan
 
                                                                         @can('List Workflows')
-                                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('NewWorkFlowController*') ? 'menu-item-active' : '' }}"
+                                                                            <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                 data-menu-toggle="click" aria-haspopup="true">
                                                                                 <a href="{{ url('NewWorkFlowController') }}" class="menu-link">
                                                                                     <span class="svg-icon menu-icon">
@@ -446,7 +427,7 @@
                                                                         @endcan
 
                                                                         @canany(['List Director', 'List Division', 'List Units'])
-                                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('division_manager*') || Request::routeIs('directors*') || Request::routeIs('units*') ? 'menu-item-open menu-item-here' : '' }}"
+                                                                            <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                 data-menu-toggle="hover" aria-haspopup="true">
                                                                                 <a href="javascript:;" class="menu-link menu-toggle">
                                                                                     <span class="svg-icon menu-icon">
@@ -459,8 +440,7 @@
                                                                                 <div class="menu-submenu menu-submenu-classic menu-submenu-right">
                                                                                     <ul class="menu-subnav">
                                                                                         @can('List Division')
-                                                                                            <li class="menu-item {{ Request::is('division_manager*') ? 'menu-item-active' : '' }}"
-                                                                                                aria-haspopup="true">
+                                                                                            <li class="menu-item" aria-haspopup="true">
                                                                                                 <a href="{{ url('division_manager') }}"
                                                                                                     class="menu-link">
                                                                                                     <i
@@ -470,8 +450,7 @@
                                                                                             </li>
                                                                                         @endcan
                                                                                         @can('List Director')
-                                                                                            <li class="menu-item {{ Request::routeIs('directors*') ? 'menu-item-active' : '' }}"
-                                                                                                aria-haspopup="true">
+                                                                                            <li class="menu-item" aria-haspopup="true">
                                                                                                 <a href="{{ route('directors.index') }}"
                                                                                                     class="menu-link">
                                                                                                     <i
@@ -481,8 +460,7 @@
                                                                                             </li>
                                                                                         @endcan
                                                                                         @can('List Units')
-                                                                                            <li class="menu-item {{ Request::routeIs('units*') ? 'menu-item-active' : '' }}"
-                                                                                                aria-haspopup="true">
+                                                                                            <li class="menu-item" aria-haspopup="true">
                                                                                                 <a href="{{ route('units.index') }}" class="menu-link">
                                                                                                     <i
                                                                                                         class="menu-bullet menu-bullet-dot"><span></span></i>
@@ -495,7 +473,7 @@
                                                                             </li>
                                                                         @endcanany
                                                                         @canany(['List Notification Templates', 'List Notification Rules'])
-                                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::routeIs('notification_templates*') || Request::routeIs('notification_rules*') ? 'menu-item-open menu-item-here' : '' }}"
+                                                                            <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                 data-menu-toggle="hover" aria-haspopup="true">
                                                                                 <a href="javascript:;" class="menu-link menu-toggle">
                                                                                     <span class="svg-icon menu-icon">
@@ -508,8 +486,7 @@
                                                                                 <div class="menu-submenu menu-submenu-classic menu-submenu-right">
                                                                                     <ul class="menu-subnav">
                                                                                         @can('List Notification Templates')
-                                                                                            <li class="menu-item {{ Request::routeIs('notification_templates*') ? 'menu-item-active' : '' }}"
-                                                                                                aria-haspopup="true">
+                                                                                            <li class="menu-item" aria-haspopup="true">
                                                                                                 <a href="{{ route('notification_templates.index') }}"
                                                                                                     class="menu-link">
                                                                                                     <i
@@ -520,8 +497,7 @@
                                                                                             </li>
                                                                                         @endcan
                                                                                         @can('List Notification Rules')
-                                                                                            <li class="menu-item {{ Request::routeIs('notification_rules*') ? 'menu-item-active' : '' }}"
-                                                                                                aria-haspopup="true">
+                                                                                            <li class="menu-item" aria-haspopup="true">
                                                                                                 <a href="{{ route('notification_rules.index') }}"
                                                                                                     class="menu-link">
                                                                                                     <i
@@ -536,7 +512,7 @@
                                                                         @endcanany
 
                                                                         @can('List Groups')
-                                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('groups*') ? 'menu-item-active' : '' }}"
+                                                                            <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                 data-menu-toggle="click" aria-haspopup="true">
                                                                                 <a href="{{ url('groups') }}" class="menu-link">
                                                                                     <span class="svg-icon menu-icon">
@@ -563,7 +539,7 @@
                                                                         @endcan
 
                                                                         @can('List Applications')
-                                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('applications*') ? 'menu-item-active' : '' }}"
+                                                                            <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                 data-menu-toggle="click" aria-haspopup="true">
                                                                                 <a href="{{ url('applications') }}" class="menu-link">
                                                                                     <span class="svg-icon menu-icon">
@@ -590,7 +566,7 @@
                                                                         @endcan
 
                                                                         @can('List Roles')
-                                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('roles*') ? 'menu-item-active' : '' }}"
+                                                                            <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                 data-menu-toggle="click" aria-haspopup="true">
                                                                                 <a href="{{ url('roles') }}" class="menu-link">
                                                                                     <span class="svg-icon menu-icon">
@@ -618,7 +594,7 @@
 
                                                                         @hasrole('Super Admin')
                                                                         @can('List Permissions')
-                                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('permissions*') ? 'menu-item-active' : '' }}"
+                                                                            <li class="menu-item menu-item-submenu menu-item-rel"
                                                                                 data-menu-toggle="click" aria-haspopup="true">
                                                                                 <a href="{{ url('permissions') }}" class="menu-link">
                                                                                     <span class="svg-icon menu-icon">
@@ -646,8 +622,8 @@
                                                                         @endhasrole
                                                             </li>
                                                             @can('List Stages')
-                                                                <li class="menu-item menu-item-submenu menu-item-rel{{ Request::is('stages*') ? 'menu-item-active' : '' }}"
-                                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                    aria-haspopup="true">
                                                                     <a href="{{ url('stages') }}" class="menu-link">
                                                                         <span class="svg-icon menu-icon">
                                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -672,8 +648,8 @@
                                                             @endcan
 
                                                             @can('List Requester Departments')
-                                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('requester-department*') ? 'menu-item-active' : '' }}"
-                                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                    aria-haspopup="true">
                                                                     <a href="{{ url('requester-department') }}" class="menu-link">
                                                                         <span class="svg-icon menu-icon">
                                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -698,8 +674,8 @@
                                                             @endcan
 
                                                             @can('List Parents')
-                                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('parents*') ? 'menu-item-active' : '' }}"
-                                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                    aria-haspopup="true">
                                                                     <a href="{{ url('parents') }}" class="menu-link">
                                                                         <span class="svg-icon menu-icon">
                                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -724,8 +700,8 @@
                                                             @endcan
 
                                                             @can('List Hold Reasons')
-                                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::routeIs('hold-reasons*') ? 'menu-item-active' : '' }}"
-                                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                    aria-haspopup="true">
                                                                     <a href="{{ route('hold-reasons.index') }}" class="menu-link">
                                                                         <span class="svg-icon menu-icon">
                                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -751,8 +727,8 @@
 
 
                                                             @can('List HighLevelStatuses')
-                                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('high_level_status*') ? 'menu-item-active' : '' }}"
-                                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                    aria-haspopup="true">
                                                                     <a href="{{ url('high_level_status') }}" class="menu-link">
                                                                         <span class="svg-icon menu-icon">
                                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -777,8 +753,8 @@
                                                             @endcan
 
                                                             @can('List RejectionReasons')
-                                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('rejection_reasons*') ? 'menu-item-active' : '' }}"
-                                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                    aria-haspopup="true">
                                                                     <a href="{{ url('rejection_reasons') }}" class="menu-link">
                                                                         <span class="svg-icon menu-icon">
                                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -803,8 +779,8 @@
                                                             @endcan
 
                                                             @can('SLA Calculations')
-                                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('sla-calculations*') ? 'menu-item-active' : '' }}"
-                                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                    aria-haspopup="true">
                                                                     <a href="{{ url('sla-calculations') }}" class="menu-link">
                                                                         <span class="svg-icon menu-icon">
                                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -829,8 +805,8 @@
                                                             @endcan
 
                                                             @can('Configurations')
-                                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('configurations*') ? 'menu-item-active' : '' }}"
-                                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                    aria-haspopup="true">
                                                                     <a href="{{ url('configurations') }}" class="menu-link">
                                                                         <span class="svg-icon menu-icon">
                                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -858,8 +834,8 @@
                                                     </li>
                                                 @endcanany
                             @canany(['Final Confirmation', 'Edit Testable Form', 'Edit Top Management Form', 'Admin Add Attachments and Feedback', 'shifting CRS', 'List Cab Users'])
-                            <li class="menu-item menu-item-submenu menu-item-rel{{ Request::is(['testable_form*', 'top_management_crs/form*', 'add_attachments_form*', 'cab_users*', 'change-requests/reorder/home*']) || Request::routeIs(['top_management_crs.list', 'top_management_crs.create', 'final_confirmation*']) ? 'menu-item-open menu-item-here' : '' }}"
-                                data-menu-toggle="hover" aria-haspopup="true">
+                            <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                aria-haspopup="true">
                                 <a href="javascript:;" class="menu-link menu-toggle">
                                     <span class="menu-text">Admin</span>
                                     <span class="menu-desc"></span>
@@ -868,8 +844,8 @@
                                 <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                     <ul class="menu-subnav">
                                         @can('Edit Testable Form')
-                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('testable_form*') ? 'menu-item-active' : '' }}"
-                                                data-menu-toggle="click" aria-haspopup="true">
+                                            <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                aria-haspopup="true">
                                                 <a href="{{ url('testable_form') }}" class="menu-link">
                                                     <span class="svg-icon menu-icon">
                                                         <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -895,8 +871,8 @@
                                         @endcan
 
                                         @can('Edit Top Management Form')
-                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('top_management_crs/form*') ? 'menu-item-active' : '' }}"
-                                                data-menu-toggle="click" aria-haspopup="true">
+                                            <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                aria-haspopup="true">
                                                 <a href="{{ url('top_management_crs/form') }}" class="menu-link">
                                                     <span class="svg-icon menu-icon">
                                                         <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -924,8 +900,8 @@
 
 
                                         @canany(['Create Top Management CRS', 'List Top Management CRS', 'Delete Top Management CRS'])
-                                                        <li class="menu-item menu-item-submenu menu-item-rel {{ Request::routeIs(['top_management_crs.list', 'top_management_crs.create']) ? 'menu-item-open menu-item-here' : '' }}"
-                                                            data-menu-toggle="click" aria-haspopup="true">
+                                                        <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                            aria-haspopup="true">
                                                             <a href="javascript:;" class="menu-link menu-toggle">
                                                                 <span class="svg-icon menu-icon">
                                                                     <!--begin::Svg Icon | path:assets/media/svg/icons/General/Settings.svg-->
@@ -951,8 +927,7 @@
                                                             <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                                                 <ul class="menu-subnav">
                                                                     @can('List Top Management CRS')
-                                                                        <li class="menu-item {{ Request::routeIs('top_management_crs.list') ? 'menu-item-active' : '' }}"
-                                                                            aria-haspopup="true">
+                                                                        <li class="menu-item" aria-haspopup="true">
                                                                             <a href="{{ route('top_management_crs.list') }}"
                                                                                 class="menu-link">
                                                                                 <i class="menu-bullet menu-bullet-dot"><span></span></i>
@@ -961,8 +936,7 @@
                                                                         </li>
                                                                     @endcan
                                                                     @can('Create Top Management CRS')
-                                                                        <li class="menu-item {{ Request::routeIs('top_management_crs.create') ? 'menu-item-active' : '' }}"
-                                                                            aria-haspopup="true">
+                                                                        <li class="menu-item" aria-haspopup="true">
                                                                             <a href="{{ route('top_management_crs.create') }}"
                                                                                 class="menu-link">
                                                                                 <i class="menu-bullet menu-bullet-dot"><span></span></i>
@@ -976,8 +950,8 @@
                                                         @endcan
 
                                                         @can('Admin Add Attachments and Feedback')
-                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('add_attachments_form*') ? 'menu-item-active' : '' }}"
-                                                                data-menu-toggle="click" aria-haspopup="true">
+                                                            <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                aria-haspopup="true">
                                                                 <a href="{{ url('add_attachments_form') }}" class="menu-link">
                                                                     <span class="svg-icon menu-icon">
                                                                         <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1003,8 +977,8 @@
                                                         @endcan
 
                                                         @can('List Cab Users')
-                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('cab_users*') ? 'menu-item-active' : '' }}"
-                                                                data-menu-toggle="click" aria-haspopup="true">
+                                                            <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                aria-haspopup="true">
                                                                 <a href="{{ url('cab_users') }}" class="menu-link">
                                                                     <span class="svg-icon menu-icon">
                                                                         <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1030,8 +1004,8 @@
                                                         @endcan
 
                                                         @can('shifting CRS')
-                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('change-requests/reorder/home*') ? 'menu-item-active' : '' }}"
-                                                                data-menu-toggle="click" aria-haspopup="true">
+                                                            <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                aria-haspopup="true">
                                                                 <a href="{{ url('/change-requests/reorder/home') }}" class="menu-link">
                                                                     <span class="svg-icon menu-icon">
                                                                         <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1057,8 +1031,8 @@
                                                         @endcan
 
                                                         @can('Final Confirmation')
-                                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::routeIs('final_confirmation*') ? 'menu-item-active' : '' }}"
-                                                                data-menu-toggle="click" aria-haspopup="true">
+                                                            <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                                aria-haspopup="true">
                                                                 <a href="{{ route('final_confirmation.index') }}" class="menu-link">
                                                                     <span class="svg-icon menu-icon">
                                                                         <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1088,8 +1062,8 @@
                                         @endcanany
 
                             @canany(['List change requests', 'Create ChangeRequest', 'My Assignments', 'Show My CRs'])
-                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is(['change_request*', 'change_request2*', 'my_assignments*', 'defects*', 'prerequisites*']) || Request::routeIs('cr_hold*') ? 'menu-item-open menu-item-here' : '' }}"
-                                    data-menu-toggle="hover" aria-haspopup="true">
+                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                    aria-haspopup="true">
                                     <a href="javascript:;" class="menu-link menu-toggle">
                                         <span class="menu-text">Change Request</span>
                                         <span class="menu-desc"></span>
@@ -1098,8 +1072,8 @@
                                     <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                         <ul class="menu-subnav">
                                             @can('Show My CRs')
-                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('change_request/listcrsbyuser*') ? 'menu-item-active' : '' }}"
-                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                    aria-haspopup="true">
                                                     <a href="{{ url('change_request/listcrsbyuser') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1133,8 +1107,8 @@
                                                     $crCount = 0;
                                                 }
                                             @endphp
-                                            <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('change_request2/dvision_manager_cr*') ? 'menu-item-active' : '' }}"
-                                                data-menu-toggle="click" aria-haspopup="true">
+                                            <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                aria-haspopup="true">
                                                 <a href="{{ url('change_request2/dvision_manager_cr') }}" class="menu-link">
                                                     <span class="svg-icon menu-icon">
                                                         <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1159,8 +1133,8 @@
                                             </li>
 
                                             @can('Show cr pending cap')
-                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('change_request2/cr_pending_cap*') ? 'menu-item-active' : '' }}"
-                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                    aria-haspopup="true">
                                                     <a href="{{ url('change_request2/cr_pending_cap') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1186,8 +1160,8 @@
                                             @endcan
 
                                             @can('show hold cr')
-                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::routeIs('cr_hold*') ? 'menu-item-active' : '' }}"
-                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                    aria-haspopup="true">
                                                     <a href="{{ route('cr_hold') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1213,8 +1187,7 @@
                                             @endcan
 
                                             @can('Create ChangeRequest')
-                                                <li class="menu-item {{ Request::is('change_request/workflow/type*') ? 'menu-item-active' : '' }}"
-                                                    aria-haspopup="true">
+                                                <li class="menu-item" aria-haspopup="true">
                                                     <a href="{{ url('change_request/workflow/type') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1240,8 +1213,8 @@
                                             @endcan
 
                                             @can('List change requests')
-                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('change_request') ? 'menu-item-active' : '' }}"
-                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                    aria-haspopup="true">
                                                     <a href="{{ url('change_request') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1267,8 +1240,8 @@
                                             @endcan
 
                                             @can('My Assignments')
-                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('my_assignments*') ? 'menu-item-active' : '' }}"
-                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                    aria-haspopup="true">
                                                     <a href="{{ url('my_assignments') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1294,8 +1267,8 @@
                                             @endcan
 
                                             @can('List Defects')
-                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('defects*') ? 'menu-item-active' : '' }}"
-                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                    aria-haspopup="true">
                                                     <a href="{{ url('defects') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1321,8 +1294,8 @@
                                             @endcan
 
                                             @can('List Assisstance Request')
-                                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('prerequisites*') ? 'menu-item-active' : '' }}"
-                                                    data-menu-toggle="click" aria-haspopup="true">
+                                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                                    aria-haspopup="true">
                                                     <a href="{{ url('prerequisites') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1353,17 +1326,16 @@
                                 </li>
                             @endcanany
                             @canany(['Access Search', 'Access Advanced Search', 'Reports'])
-                                <li class="menu-item menu-item-submenu {{ Request::is(['searchs*', 'reports*']) || Request::routeIs('advanced.search') ? 'menu-item-open menu-item-here' : '' }}"
-                                    data-menu-toggle="hover" aria-haspopup="true">
+                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                    aria-haspopup="true">
                                     <a href="javascript:;" class="menu-link menu-toggle">
                                         <span class="menu-text">Search & Reporting</span>
                                         <i class="la la-angle-down ml-2"></i>
                                     </a>
-                                    <div class="menu-submenu menu-submenu-classic menu-submenu-right">
+                                    <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                         <ul class="menu-subnav">
                                             @can('Access Search')
-                                                <li class="menu-item {{ Request::is('searchs*') ? 'menu-item-active' : '' }}"
-                                                    aria-haspopup="true">
+                                                <li class="menu-item" aria-haspopup="true">
                                                     <a href="{{ url('searchs') }}" class="menu-link">
                                                         <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                         <span class="menu-text">Search</span>
@@ -1372,8 +1344,7 @@
                                             @endcan
 
                                             @can('Access Advanced Search')
-                                                <li class="menu-item {{ Request::routeIs('advanced.search') ? 'menu-item-active' : '' }}"
-                                                    aria-haspopup="true">
+                                                <li class="menu-item" aria-haspopup="true">
                                                     <a href="{{ route('advanced.search') }}" class="menu-link">
                                                         <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                         <span class="menu-text">Advanced Search</span>
@@ -1382,8 +1353,8 @@
                                             @endcan
 
                                             @can('Reports')
-                                                <li class="menu-item menu-item-submenu {{ Request::is('reports*') ? 'menu-item-open menu-item-here' : '' }}"
-                                                    data-menu-toggle="hover" aria-haspopup="true">
+                                                <li class="menu-item menu-item-submenu" data-menu-toggle="hover"
+                                                    aria-haspopup="true">
                                                     <a href="javascript:;" class="menu-link menu-toggle">
                                                         <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                         <span class="menu-text">Reports</span>
@@ -1391,53 +1362,46 @@
                                                     </a>
                                                     <div class="menu-submenu menu-submenu-classic menu-submenu-right">
                                                         <ul class="menu-subnav">
-                                                            <li
-                                                                class="menu-item {{ Request::is('reports/actual-vs-planned*') ? 'menu-item-active' : '' }}">
+                                                            <li class="menu-item">
                                                                 <a href="{{ url('reports/actual-vs-planned') }}"
                                                                     class="menu-link">
                                                                     <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                                     <span class="menu-text">Actual vs planned</span>
                                                                 </a>
                                                             </li>
-                                                            <li
-                                                                class="menu-item {{ Request::is('reports/all-crs-by-requester*') ? 'menu-item-active' : '' }}">
+                                                            <li class="menu-item">
                                                                 <a href="{{ url('reports/all-crs-by-requester') }}"
                                                                     class="menu-link">
                                                                     <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                                     <span class="menu-text">All CRs by requester</span>
                                                                 </a>
                                                             </li>
-                                                            <li
-                                                                class="menu-item {{ Request::is('reports/cr-current-status*') ? 'menu-item-active' : '' }}">
+                                                            <li class="menu-item">
                                                                 <a href="{{ url('reports/cr-current-status') }}"
                                                                     class="menu-link">
                                                                     <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                                     <span class="menu-text">CR Current Status</span>
                                                                 </a>
                                                             </li>
-                                                            <li
-                                                                class="menu-item {{ Request::is('reports/cr-crossed-sla*') ? 'menu-item-active' : '' }}">
+                                                            <li class="menu-item">
                                                                 <a href="{{ url('reports/cr-crossed-sla') }}" class="menu-link">
                                                                     <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                                     <span class="menu-text">List of CRs crossed SLA</span>
                                                                 </a>
                                                             </li>
-                                                            <li
-                                                                class="menu-item {{ Request::is('reports/rejected-crs*') ? 'menu-item-active' : '' }}">
+                                                            <li class="menu-item">
                                                                 <a href="{{ url('reports/rejected-crs') }}" class="menu-link">
                                                                     <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                                     <span class="menu-text">Rejected CRs</span>
                                                                 </a>
                                                             </li>
-                                                            <li
-                                                                class="menu-item {{ Request::is('reports/sla-report*') ? 'menu-item-active' : '' }}">
+                                                            <li class="menu-item">
                                                                 <a href="{{ url('reports/sla-report') }}" class="menu-link">
                                                                     <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                                     <span class="menu-text">SLA Report</span>
                                                                 </a>
                                                             </li>
-                                                            <li
-                                                                class="menu-item {{ Request::is('reports/kpi-report*') ? 'menu-item-active' : '' }}">
+                                                            <li class="menu-item">
                                                                 <a href="{{ url('reports/kpi-report') }}" class="menu-link">
                                                                     <i class="menu-bullet menu-bullet-dot"><span></span></i>
                                                                     <span class="menu-text">KPI Report</span>
@@ -1453,8 +1417,8 @@
                             @endcanany
 
                             @canany(['List Release', 'Release To CRs'])
-                                <li class="menu-item menu-item-submenu menu-item-rel {{ Request::is('releases*') ? 'menu-item-open menu-item-here' : '' }}"
-                                    data-menu-toggle="hover" aria-haspopup="true">
+                                <li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="click"
+                                    aria-haspopup="true">
                                     <a href="javascript:;" class="menu-link menu-toggle">
                                         <span class="menu-text">Releases</span>
                                         <i class="la la-angle-down ml-2"></i>
@@ -1462,8 +1426,7 @@
                                     <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                         <ul class="menu-subnav">
                                             @can('List Release')
-                                                <li class="menu-item {{ Request::is('releases') ? 'menu-item-active' : '' }}"
-                                                    aria-haspopup="true">
+                                                <li class="menu-item" aria-haspopup="true">
                                                     <a href="{{ url('releases') }}" class="menu-link">
                                                         <span class="svg-icon menu-icon">
                                                             <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
@@ -1488,32 +1451,6 @@
                                                 </li>
                                             @endcan
 
-                                            @can('Release To CRs')
-                                                <li class="menu-item {{ Request::is('releases/home*') ? 'menu-item-active' : '' }}"
-                                                    aria-haspopup="true">
-                                                    <a href="{{ url('/releases/home') }}" class="menu-link">
-                                                        <span class="svg-icon menu-icon">
-                                                            <!--begin::Svg Icon | path:assets/media/svg/icons/General/Shield-check.svg-->
-                                                            <svg xmlns="http://www.w3.org/2000/svg"
-                                                                xmlns:xlink="http://www.w3.org/1999/xlink" width="24px"
-                                                                height="24px" viewBox="0 0 24 24" version="1.1">
-                                                                <g stroke="none" stroke-width="1" fill="none"
-                                                                    fill-rule="evenodd">
-                                                                    <rect x="0" y="0" width="24" height="24" />
-                                                                    <path
-                                                                        d="M4,4 L11.6314229,2.5691082 C11.8750185,2.52343403 12.1249815,2.52343403 12.3685771,2.5691082 L20,4 L20,13.2830094 C20,16.2173861 18.4883464,18.9447835 16,20.5 L12.5299989,22.6687507 C12.2057287,22.8714196 11.7942713,22.8714196 11.4700011,22.6687507 L8,20.5 C5.51165358,18.9447835 4,16.2173861 4,13.2830094 L4,4 Z"
-                                                                        fill="#000000" opacity="0.3" />
-                                                                    <path
-                                                                        d="M11.1750002,14.75 C10.9354169,14.75 10.6958335,14.6541667 10.5041669,14.4625 L8.58750019,12.5458333 C8.20416686,12.1625 8.20416686,11.5875 8.58750019,11.2041667 C8.97083352,10.8208333 9.59375019,10.8208333 9.92916686,11.2041667 L11.1750002,12.45 L14.3375002,9.2875 C14.7208335,8.90416667 15.2958335,8.90416667 15.6791669,9.2875 C16.0625002,9.67083333 16.0625002,10.2458333 15.6791669,10.6291667 L11.8458335,14.4625 C11.6541669,14.6541667 11.4145835,14.75 11.1750002,14.75 Z"
-                                                                        fill="#000000" />
-                                                                </g>
-                                                            </svg>
-                                                            <!--end::Svg Icon-->
-                                                        </span>
-                                                        <span class="menu-text">Release to CRS</span>
-                                                    </a>
-                                                </li>
-                                            @endcan
                                         </ul>
                                     </div>
                                 </li>
@@ -1601,10 +1538,10 @@
                                         $first_letters .= mb_substr($word, 0, 1);
                                     }
                                 @endphp
-                                <span class="symbol-label font-size-h5 font-weight-bold"
-                                    style="color: white; background-color: rgba(255,255,255,0.3);">{{$first_letters}}</span>
+                                <span
+                                    class="symbol-label text-white font-size-h5 font-weight-bold bg-white-o-30">{{$first_letters}}</span>
                             </span>
-                            <i class="la  text-white ml-2"></i>
+                            <i class="la text-white ml-2"></i>
                         </div>
                     </div>
                     <!--end::User Section-->
@@ -1616,24 +1553,3 @@
             <!--end::Container-->
         </div>
         <!--end::Header-->
-
-        @push('script')
-            <script>
-                $(document).ready(function () {
-                    var $userToggle = $('#kt_quick_user_toggle');
-
-                    $userToggle.on('click', function () {
-                        $(this).toggleClass('show');
-                    });
-
-                    $(document).on('click', '#kt_quick_user_close', function () {
-                        $userToggle.removeClass('show');
-                    });
-
-                    $(document).on('click', '.offcanvas-overlay', function () {
-                        $userToggle.removeClass('show');
-                    });
-                });
-            </script>
-
-        @endpush

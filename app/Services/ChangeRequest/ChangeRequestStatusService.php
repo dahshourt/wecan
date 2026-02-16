@@ -25,6 +25,7 @@ use InvalidArgumentException;
 
 class ChangeRequestStatusService
 {
+    use NeedUpdateWorkflowIds;
     private const TECHNICAL_REVIEW_STATUS = 0;
 
     private const WORKFLOW_NORMAL = 1;
@@ -533,10 +534,11 @@ class ChangeRequestStatusService
             // ════════════════════════════════════════════════════════════════
 
             // Get the workflow ID dynamically for "Need Update" transition
-            $needUpdateWorkflowId = $this->getNeedUpdateWorkflowId($changeRequestId, $statusData);
+           $needUpdateWorkflowIds = $this->getAllNeedUpdateWorkflowIds($changeRequestId);
 
-            if (isset($statusData['new_status_id']) && $statusData['new_status_id'] == $needUpdateWorkflowId) {
-                Log::info('Need Update detected (workflow ID ' . $needUpdateWorkflowId . ') - bypassing normal workflow', [
+
+           if (isset($statusData['new_status_id']) && !empty($needUpdateWorkflowIds) && in_array($statusData['new_status_id'], $needUpdateWorkflowIds)) {
+    Log::info('Need Update detected (workflow ID ' . $statusData['new_status_id'] . ' in [' . implode(',', $needUpdateWorkflowIds) . ']) - bypassing normal workflow', [
                     'cr_id' => $changeRequestId,
                     'status_id' => $statusData['new_status_id']
                 ]);
@@ -1127,7 +1129,7 @@ class ChangeRequestStatusService
     /**
      * Extract status data from request
      */
-    private function extractStatusData($request): array
+    public function extractStatusData($request): array
     {
         $newStatusId = $request['new_status_id'] ?? $request->new_status_id ?? null;
         $oldStatusId = $request['old_status_id'] ?? $request->old_status_id ?? null;
@@ -1561,11 +1563,69 @@ class ChangeRequestStatusService
             $newStatus = $workflow->workflowstatus->first()->to_status;
         }
 
+        // Initialize variables
         $shouldCreateParallelWorkflows = false;
         $statusesToCreate = [];
 
+        // ════════════════════════════════════════════════════════════
+        // ✨ SPECIAL CASE: "Need Update" from Workflow B statuses
+        // Handle transitions from Workflow B back to "Pending Create Agreed Scope"
+        // ════════════════════════════════════════════════════════════
+        
+        $workflowBStatuses = [
+            'Pending Agreed Scope Approval-SA',
+            'Pending Agreed Scope Approval-Vendor',
+            'Pending Agreed Scope Approval-Business'
+        ];
 
+        if (
+            $oldStatus && $newStatus &&
+            $newStatus->status_name == 'Pending Create Agreed Scope' &&
+            isset($statusData['need_update']) && $statusData['need_update'] === true &&
+            in_array($oldStatus->status_name, $workflowBStatuses)
+        ) {
+            Log::info('Need Update selected from Workflow B status - calling dedicated Need Update action', [
+                'cr_id' => $changeRequest->id,
+                'new_status_id' => $newStatus->id,
+                'from_status' => $oldStatus->status_name,
+                'is_from_workflow_b' => true,
+                'debug_info' => [
+                    'old_status_name' => $oldStatus->status_name,
+                    'new_status_name' => $newStatus->status_name,
+                    'need_update_flag' => $statusData['need_update'] ?? 'not_set',
+                    'in_workflow_b_array' => in_array($oldStatus->status_name, $workflowBStatuses),
+                    'workflow_b_statuses' => $workflowBStatuses
+                ]
+            ]);
 
+            // Call our Need Update action
+            $this->handleNeedUpdateAction($changeRequest->id);
+
+            // Return early to skip normal workflow processing
+            return;
+        } else {
+            // Enhanced debugging for when conditions are NOT met
+            Log::debug('Need Update conditions NOT met - debugging', [
+                'cr_id' => $changeRequest->id,
+                'debug_info' => [
+                    'old_status_exists' => isset($oldStatus),
+                    'new_status_exists' => isset($newStatus),
+                    'old_status_name' => $oldStatus->status_name ?? 'null',
+                    'new_status_name' => $newStatus->status_name ?? 'null',
+                    'new_status_is_pending_create' => isset($newStatus) && $newStatus->status_name == 'Pending Create Agreed Scope',
+                    'need_update_set' => isset($statusData['need_update']),
+                    'need_update_value' => $statusData['need_update'] ?? 'not_set',
+                    'need_update_is_true' => isset($statusData['need_update']) && $statusData['need_update'] === true,
+                    'old_status_in_workflow_b' => isset($oldStatus) && in_array($oldStatus->status_name, $workflowBStatuses),
+                    'workflow_b_statuses' => $workflowBStatuses
+                ]
+            ]);
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // Check if we're transitioning from "Pending Create Agreed Scope"
+        // ════════════════════════════════════════════════════════════
+        
         if ($oldStatus && $oldStatus->status_name == 'Pending Create Agreed Scope') {
 
             Log::info('Transitioning FROM Pending Create Agreed Scope', [
@@ -1577,28 +1637,6 @@ class ChangeRequestStatusService
             ]);
 
             // ════════════════════════════════════════════════════════════
-            // ✨ SPECIAL CASE: "Need Update" selected
-            // Call our dedicated Need Update action instead of normal workflow
-            // ════════════════════════════════════════════════════════════
-
-            if (
-                $newStatus && $newStatus->status_name == 'Pending Create Agreed Scope' &&
-                isset($statusData['need_update']) && $statusData['need_update'] === true
-            ) {
-
-                Log::info('Need Update selected - calling dedicated Need Update action', [
-                    'cr_id' => $changeRequest->id,
-                    'new_status_id' => $newStatus->id
-                ]);
-
-                // Call our Need Update action
-                $this->handleNeedUpdateAction($changeRequest->id);
-
-                // Return early to skip normal workflow processing
-                return;
-            }
-
-            // ════════════════════════════════════════════════════════════
             // ✨ CASE 1: "Request Draft CR Doc" selected
             // Create ALL 4 statuses (Workflow A + Workflow B)
             // ════════════════════════════════════════════════════════════
@@ -1607,12 +1645,12 @@ class ChangeRequestStatusService
 
                 $shouldCreateParallelWorkflows = true;
 
-                // Create ALL 4 statuses
+                // Create ALL 4 statuses with dynamic group resolution
                 $statusesToCreate = [
-                    ['status_name' => 'Request Draft CR Doc', 'current_group_id' => 8],
-                    ['status_name' => 'Pending Agreed Scope Approval-SA', 'current_group_id' => 9],
-                    ['status_name' => 'Pending Agreed Scope Approval-Vendor', 'current_group_id' => 21],
-                    ['status_name' => 'Pending Agreed Scope Approval-Business', 'current_group_id' => null],
+                    ['status_name' => 'Request Draft CR Doc'],
+                    ['status_name' => 'Pending Agreed Scope Approval-SA'],
+                    ['status_name' => 'Pending Agreed Scope Approval-Vendor'],
+                    ['status_name' => 'Pending Agreed Scope Approval-Business']
                 ];
 
                 Log::info('Request Draft CR Doc selected - creating 4 statuses (Workflow A + B)', [
@@ -1629,11 +1667,11 @@ class ChangeRequestStatusService
 
                 $shouldCreateParallelWorkflows = true;
 
-                // Create ONLY Workflow B statuses
+                // Create ONLY Workflow B statuses with dynamic group resolution
                 $statusesToCreate = [
-                    ['status_name' => 'Pending Agreed Scope Approval-SA', 'current_group_id' => 9],
-                    ['status_name' => 'Pending Agreed Scope Approval-Vendor', 'current_group_id' => 21],
-                    ['status_name' => 'Pending Agreed Scope Approval-Business', 'current_group_id' => null],
+                    ['status_name' => 'Pending Agreed Scope Approval-SA'],
+                    ['status_name' => 'Pending Agreed Scope Approval-Vendor'],
+                    ['status_name' => 'Pending Agreed Scope Approval-Business']
                 ];
 
                 Log::info('Pending Agreed Scope Approval-SA selected - creating 3 statuses (Workflow B only)', [
@@ -1664,7 +1702,6 @@ class ChangeRequestStatusService
 
             foreach ($statusesToCreate as $index => $statusConfig) {
                 $statusName = $statusConfig['status_name'];
-                $groupId = $statusConfig['current_group_id'];
 
                 $status = Status::where('status_name', $statusName)->first();
 
@@ -1681,6 +1718,17 @@ class ChangeRequestStatusService
 
                 $activeStatus = self::ACTIVE_STATUS;
 
+                // Use dynamic group resolution like normal workflow
+                $current_group_id = $status->GetViewGroup($changeRequest->application_id);
+                if ($current_group_id) {
+                    $current_group_id = $current_group_id->id;
+                } else {
+                    $current_group_id = optional($status->group_statuses)
+                        ->where('type', '2')
+                        ->pluck('group_id')
+                        ->first();
+                }
+
                 $payload = $this->buildStatusData(
                     $changeRequest->id,
                     $statusData['old_status_id'],
@@ -1688,7 +1736,7 @@ class ChangeRequestStatusService
                     null,
                     $currentStatus->reference_group_id ?? 8,
                     $previous_group_id,
-                    $groupId,
+                    $current_group_id,
                     $userId,
                     $activeStatus
                 );

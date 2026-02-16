@@ -189,4 +189,12 @@ return [
         'identifier_type' => 'group_id',
         'description' => 'Send to a specific group by ID'
     ],
+    [
+        'value' => 'cap_users',
+        'label' => 'Cap Users',
+        'category' => 'Explicit',
+        'needs_identifier' => true,
+        'identifier_type' => 'email',
+        'description' => 'Send to a specific group by ID'
+    ],
 ];
