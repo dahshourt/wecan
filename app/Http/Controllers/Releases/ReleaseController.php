@@ -224,11 +224,11 @@ class ReleaseController extends Controller
         $currentReleaseStatus = $row->releaseStatusObj;
 
         // Get vendors and priorities
-        $vendors = \App\Models\Vendor::where('active', 1)->get();
+        $vendors = \App\Models\Vendor::where('active', '1')->get();
         $priorities = \App\Models\Priority::all();
         
         // Get users for Responsible RTM dropdown
-        $users = \App\Models\User::where('active', 1)->orderBy('name')->get();
+        $users = \App\Models\User::where('active', '1')->orderBy('name')->get();
         
         // Risk lookup data
         $riskCategories = \App\Models\RiskCategory::active()->get();

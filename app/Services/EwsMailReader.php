@@ -32,6 +32,7 @@ class EwsMailReader
         $password = config('services.ews.password');
 
         $this->client = new Client($host, $username, $password, Client::VERSION_2016);
+        // $this->client->setCurlOptions([CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => false]);
     }
 
     public function readInbox($limit)
@@ -111,7 +112,7 @@ class EwsMailReader
 
     }
 
-    public function handleApprovals(int $limit = 20): void
+    public function handleApprovals(int $limit = 1): void
     {
         $messages = $this->readInbox($limit);
 
