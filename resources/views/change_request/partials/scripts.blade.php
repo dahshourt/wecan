@@ -43,7 +43,7 @@
         });
 
     </script>
-    
+
     @include('change_request.partials.on_behalf_script')
 
     <script>
@@ -651,7 +651,7 @@
 
                 const isTestable = flagValue === '1';
 
-                if (isTestable) {
+                if (isTestable && statusText === 'Testing Estimation') {
                     // Enable the input field
                     testingEstimationInput.disabled = false;
                     testingEstimationInput.classList.remove('disabled', 'bg-gray-100');
@@ -804,7 +804,7 @@
 
                     const isTestable = flagValue === '1';
 
-                    if (isTestable) {
+                    if (isTestable && statusText === 'Testing Estimation') {
                         $testingEstimationInput.prop('disabled', false)
                             .removeClass('disabled bg-gray-100')
                             .addClass('bg-white')

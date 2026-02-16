@@ -41,11 +41,18 @@
                                                 <!--end::Svg Icon-->
                                             </span>
                                         </span>
-                                        Add {{ $form_title }}
+                                        {{ $form_title }}
+                                        <span class="text-muted font-weight-normal font-size-sm ml-2">Click arrow to expand search criteria</span>
                                     </h3>
+                                    <div class="card-toolbar">
+                                        <a href="#" id="advancedSearchToggle" class="btn btn-icon btn-sm btn-light-primary mr-1" data-toggle="collapse" data-target="#advancedSearchCollapse" aria-expanded="true">
+                                            <i class="ki ki-arrow-up icon-nm"></i>
+                                        </a>
+                                    </div>
                                 </div>
                                 <!--begin::Form-->
                                 <form id="advanced_search">
+                                    <div id="advancedSearchCollapse" class="collapse show">
                                     @if (count($fields) > 0)
                                         <div class="card-body py-0">
                                             <div class="row">
@@ -287,6 +294,7 @@
                                             <p class="text-center text-muted">No fields available for search.</p>
                                         </div>
                                     @endif
+                                    </div>
                                     </form>
                                     <!--end::Form-->
                                 </div>
@@ -359,11 +367,11 @@
                                                 <th>Last Action Date</th>
                                                 <th>Action</th>
                                             @else
-                                                <tr class="text-uppercase text-muted">
-                                        <th style="min-width: 110px">CR ID</th>
-                                        <th style="min-width: 150px">Title</th>
-                                                <th>Status</th>
-                                                <th>Action</th>
+                                                        <tr class="text-uppercase text-muted">
+                                                <th style="min-width: 110px">CR ID</th>
+                                                <th style="min-width: 150px">Title</th>
+                                                        <th>Status</th>
+                                                        <th>Action</th>
                                             @endif
                                         </tr>
                                     </thead>
@@ -443,6 +451,21 @@
 @endpush
 @push('script')
     <script>
+    $(document).ready(function() {
+        $('#advancedSearchCollapse').on('show.bs.collapse', function () {
+            $('#advancedSearchToggle i').removeClass('ki-arrow-down').addClass('ki-arrow-up');
+        });
+
+        $('#advancedSearchCollapse').on('hide.bs.collapse', function () {
+            $('#advancedSearchToggle i').removeClass('ki-arrow-up').addClass('ki-arrow-down');
+        });
+
+        // Close animation on load to hint user
+        setTimeout(function() {
+            $('#advancedSearchCollapse').collapse('hide');
+        }, 2000);
+    });
+
     $(document).on('click', '.js-toggle-cr-details', function(e) {
       e.preventDefault();
       var $btn = $(this);

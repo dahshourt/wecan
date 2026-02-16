@@ -33,9 +33,9 @@ class ChangeRequestStatusContextFactory
         $oldStatusId = $request['old_status_id'] ?? $request->old_status_id ?? null;
         $newWorkflowId = $request['new_workflow_id'] ?? null;
 
-        if (!$newStatusId || !$oldStatusId) {
-            throw new InvalidArgumentException('Missing required status IDs');
-        }
+        //if (!$newStatusId || !$oldStatusId) {
+        //    throw new InvalidArgumentException('Missing required status IDs');
+        //}
 
         return [
             'new_status_id' => $newStatusId,

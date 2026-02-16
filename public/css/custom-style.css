@@ -486,7 +486,7 @@ input:checked+.modern-toggle-slider:before {
 /* === Modern Menu Redesign (Purple Background) === */
 .header-menu .menu-nav>.menu-item>.menu-link {
     border-radius: 12px;
-    padding: 0.6rem 0.8rem;
+    padding: 0.6rem 0.55rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     margin: 0 2px;
 }
@@ -504,7 +504,7 @@ input:checked+.modern-toggle-slider:before {
 .header-menu .menu-nav>.menu-item>.menu-link .menu-text {
     /* font-weight: 600; */
     font-weight: bolder;
-    font-size: 0.75rem !important;
+    font-size: 0.82rem !important;
     color: rgba(255, 255, 255, 0.9);
     /* High contrast white */
     letter-spacing: 0.2px;
@@ -523,9 +523,16 @@ input:checked+.modern-toggle-slider:before {
     transition: transform 0.3s ease;
 }
 
-.header-menu .menu-nav>.menu-item.menu-item-hover>.menu-link .menu-arrow {
+.header-menu .menu-nav>.menu-item.menu-item-hover>.menu-link .menu-arrow,
+.header-menu .menu-nav>.menu-item.menu-item-open>.menu-link .menu-arrow,
+.header-menu .menu-nav>.menu-item.menu-item-hover>.menu-link .la-angle-down,
+.header-menu .menu-nav>.menu-item.menu-item-open>.menu-link .la-angle-down {
     transform: rotate(180deg);
     color: #ffffff;
+}
+
+.header-menu .menu-nav>.menu-item>.menu-link .la-angle-down {
+    transition: transform 0.3s ease;
 }
 
 /* Modern Submenu */
@@ -612,4 +619,22 @@ input:checked+.modern-toggle-slider:before {
 
 #group-name {
     font-size: .9rem !important;
+}
+
+/* Toggle Icon Animation */
+#kt_quick_user_toggle i {
+    transition: transform 0.3s ease;
+}
+
+#kt_quick_user_toggle.show i,
+#kt_quick_user_toggle[aria-expanded="true"] i {
+    transform: rotate(180deg);
+}
+
+.header-menu .menu-nav>.menu-item .menu-submenu.menu-submenu-left {
+    left: unset !important;
+}
+
+.header-menu .menu-nav>.menu-item .menu-submenu.menu-submenu-right {
+    right: unset !important;
 }

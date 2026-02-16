@@ -55,6 +55,8 @@ License: You must have a valid license purchased only from themeforest(the above
 
 	@stack('css')
 
+
+
 </head>
 <!--end::Head-->
 <!--begin::Body-->
