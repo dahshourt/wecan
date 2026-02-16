@@ -61,5 +61,5 @@ License: You must have a valid license purchased only from themeforest(the above
 <!--end::Head-->
 <!--begin::Body-->
 
-<body id="kt_body" style="background-image: url({{asset('public/new_theme/assets/media/bg/bg-6.jpg')}})"
+<body id="kt_body" style="background-image: url({{asset('public/Rectangle1.png')}})"
 	class="quick-panel-right demo-panel-right offcanvas-right header-fixed subheader-enabled page-loading">
