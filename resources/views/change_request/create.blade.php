@@ -47,7 +47,7 @@
 									<div id="success-message" style="margin-top: 20px; color: rgb(2, 8, 2); font-weight: bold;">
 										{{ session('status') }}:
 										@if($cr_link)
-											<a href="{{ $cr_link }}" target="_blank">View CR</a>
+											<a class="cr-link" href="{{ $cr_link }}" target="_blank">View CR</a>
 										@endif
 									</div>
 								</div>
@@ -108,7 +108,7 @@
 		});
 	</script>
 
-    @include('change_request.partials.on_behalf_script')
+	@include('change_request.partials.on_behalf_script')
 
 	<script>
 		function viewCR(url) {

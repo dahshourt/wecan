@@ -545,6 +545,7 @@ input:checked+.modern-toggle-slider:before {
     background: #ffffff;
     /* Keep submenu white for readability */
     animation: submenuFadeIn 0.2s ease;
+    z-index: 99999 !important;
 }
 
 @keyframes submenuFadeIn {
@@ -637,4 +638,24 @@ input:checked+.modern-toggle-slider:before {
 
 .header-menu .menu-nav>.menu-item .menu-submenu.menu-submenu-right {
     right: unset !important;
+}
+
+.btn.btn-success {
+    background-color: #4a2375 !important;
+    border-color: #4a2375 !important;
+}
+
+.cr-link {
+    color: #4a2375 !important;
+}
+
+.text-info {
+    color: #4a2375 !important;
+}
+
+/* Fix z-index stacking context */
+#kt_header,
+#kt_header_menu_wrapper,
+.header-menu-wrapper {
+    z-index: 99999 !important;
 }

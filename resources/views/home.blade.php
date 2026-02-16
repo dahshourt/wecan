@@ -3,7 +3,7 @@
 @section('content')
     @push('css')
         <link href="{{asset('public/new_theme/assets/css/pages/home/home-custom.css')}}" rel="stylesheet" type="text/css" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+
     @endpush
 
     <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
@@ -30,8 +30,8 @@
                     </div>
                     <!-- 3D Illustration Area -->
                     <div class="hero-illustration">
-                        <img src="{{ asset('public/new_theme/assets/media/svg/illustrations/working.svg') }}"
-                            alt="Create CR" style="max-height: 200px; opacity: 0.9;">
+                        <img src="{{ asset('public/new_theme/assets/media/svg/illustrations/working.svg') }}" alt="Create CR"
+                            style="max-height: 200px; opacity: 0.9;">
                         <!-- Replaced missing design-release.svg with working.svg -->
                     </div>
                 </div>
@@ -81,15 +81,15 @@
             <!-- KPI Chart (Preserved) -->
             @if($user_has_kpi_chart_permission)
                 <!-- <div class="card card-custom gutter-b mt-10">
-                                                            <div class="card-header border-0">
-                                                                <div class="card-title">
-                                                                    <h3 class="card-label">KPI Status Chart</h3>
-                                                                </div>
-                                                            </div>
-                                                            <div class="card-body">
-                                                                <canvas id="kpiChart" style="max-height: 400px;"></canvas>
-                                                            </div>
-                                                        </div> -->
+                                                                                    <div class="card-header border-0">
+                                                                                        <div class="card-title">
+                                                                                            <h3 class="card-label">KPI Status Chart</h3>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div class="card-body">
+                                                                                        <canvas id="kpiChart" style="max-height: 400px;"></canvas>
+                                                                                    </div>
+                                                                                </div> -->
             @endif
         </div>
     </div>
