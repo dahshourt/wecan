@@ -1,196 +1,98 @@
 @extends('layouts.app')
 
 @section('content')
+    @push('css')
+        <link href="{{asset('public/new_theme/assets/css/pages/home/home-custom.css')}}" rel="stylesheet" type="text/css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+    @endpush
 
-    <!--begin::Content-->
     <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
-        <!--begin::Subheader-->
-        <div class="subheader py-2 py-lg-12 subheader-transparent" id="kt_subheader">
-            <div class="container d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap">
-                <!--begin::Info-->
-                <div class="d-flex align-items-center flex-wrap mr-1">
-                    <!--begin::Heading-->
-                    <div class="d-flex flex-column">
-                        <!--begin::Title-->
-                        <h2 class="text-white font-weight-bold my-2 mr-5">Welcome , {{ auth()->user()->name }}</h2>
-                        <!--end::Title-->
-                        <div class="text-white font-weight-bold my-2 mr-5" style="opacity: 0.9;">
-                            <i class="fas fa-clock mr-2"></i>
-                            Last login : {{ auth()->user()->last_login }}
-                        </div>
-                    </div>
-                    <!--end::Heading-->
-                </div>
-                <!--end::Info-->
-            </div>
-        </div>
-        <!--end::Subheader-->
-        <!--begin::Entry-->
-        <div class="d-flex flex-column-fluid">
-            <!--begin::Container-->
-            <div class="container">
-                <!--begin::Card-->
-                <div class="card card-custom card-stretch example example-compact" id="kt_page_stretched_card">
-                    <div class="card-body">
-                        <!-- Align Heading and Boxes -->
-                        <div class="d-flex flex-column align-items-center gap-2">
-                            <!-- Heading -->
-                            <h2 class="mb-2">
-                                You are logged in as
-                                <span>
-                                @if(session()->has('default_group'))
-                                        {{ session('current_group_name') }}
-                                    @else
-                                        @if(auth()->user()->default_group)
-                                            {{ auth()->user()->defualt_group->name }}
-                                        @endif
-                                    @endif
-                            </span>
-                            </h2>
-
-                            <br>
-                            @canany(['Access Search' , 'Access Advanced Search'])
-                                <!-- Search Boxes in Row -->
-                                <div class="row w-100">
-                                    @php
-                                        $hasSearch = auth()->user()->can('Access Search');
-                                        $hasAdvancedSearch = auth()->user()->can('Access Advanced Search');
-                                        $searchColClass = $hasSearch && $hasAdvancedSearch ? 'col-lg-6' : 'col-12';
-                                    @endphp
-
-                                    @can('Access Search')
-                                        <div class="{{ $searchColClass }} col-md-12 mb-4">
-                                            <!-- Quick Search -->
-                                            <div class="card card-custom bgi-no-repeat bgi-size-cover gutter-b h-100"
-                                                 style="background-image: url({{asset('public/new_theme/assets/media/bg/bg-6.jpg')}})">
-                                                <div class="card-body d-flex flex-column h-100">
-                                                    <div class="mb-auto">
-                                                        <h3 class="font-weight-bolder text-white">Quick Search</h3>
-                                                        <div class="text-white-50 font-size-lg mt-2">Search with CR
-                                                            Number
-                                                        </div>
-                                                    </div>
-                                                    <div class="mt-4">
-                                                        <a href="{{ url('/searchs') }}"
-                                                           class="btn btn-white font-weight-bold py-3 px-6">Search</a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endcan
-
-                                    @can('Access Advanced Search')
-                                        <div class="{{ $searchColClass }} col-md-12 mb-4">
-                                            <!-- Advanced Search -->
-                                            <div class="card card-custom bgi-no-repeat bgi-size-cover gutter-b h-100"
-                                                 style="background-image: url({{asset('public/new_theme/assets/media/bg/bg-6.jpg')}})">
-                                                <div class="card-body d-flex flex-column h-100">
-                                                    <div class="mb-auto">
-                                                        <h3 class="font-weight-bolder text-white">Advanced Search</h3>
-                                                        <div class="text-white-50 font-size-lg mt-2">Search with
-                                                            multiple criteria
-                                                        </div>
-                                                    </div>
-                                                    <div class="mt-4">
-                                                        <a href="{{ url('/search/advanced_search') }}"
-                                                           class="btn btn-white font-weight-bold py-3 px-6">
-                                                <span class="d-flex align-items-center">
-                                                    <span>Advanced Search</span>
-                                                    <span class="svg-icon svg-icon-white svg-icon-md ml-2">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                             fill="currentColor" viewBox="0 0 16 16">
-                                                            <path fill-rule="evenodd"
-                                                                  d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8z"/>
-                                                        </svg>
-                                                    </span>
-                                                </span>
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endcan
-                                </div>
-                            @endcanany
-
-                            @canany(['Create ChangeRequest' , 'My Assignments'])
-                                <div class="row w-100">
-                                    @php
-                                        $hasCreateCR = auth()->user()->can('Create ChangeRequest');
-                                        $hasAssignments = auth()->user()->can('My Assignments');
-                                        $actionColClass = ($hasCreateCR && $hasAssignments) ? 'col-lg-6' : 'col-12';
-                                    @endphp
-
-                                    @can('Create ChangeRequest')
-                                        <div class="{{ $actionColClass }} col-md-12 mb-4">
-                                            <div class="card card-custom bgi-no-repeat bgi-size-cover gutter-b h-100"
-                                                 style="background-image: url({{asset('public/new_theme/assets/media/bg/bg-6.png')}})">
-                                                <div class="card-body d-flex flex-column h-100">
-                                                    <div class="mb-auto">
-                                                        <h3 class="font-weight-bolder text-white">Create CR</h3>
-                                                        <div class="text-white font-size-lg mt-2">Start a new change
-                                                            request
-                                                        </div>
-                                                    </div>
-                                                    <div class="mt-4">
-                                                        <a href="{{ url('/change_request/workflow/type') }}"
-                                                           class="btn btn-white font-weight-bold py-3 px-6">Create</a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endcan
-
-                                    @can('My Assignments')
-                                        <div class="{{ $actionColClass }} col-md-12 mb-4">
-                                            <div class="card card-custom bgi-no-repeat bgi-size-cover gutter-b h-100"
-                                                 style="background-image: url({{asset('public/new_theme/assets/media/bg/bg-6.png')}})">
-                                                <div class="card-body d-flex flex-column h-100">
-                                                    <div class="mb-auto">
-                                                        <h3 class="font-weight-bolder text-white">My Assignments</h3>
-                                                        <div class="text-white font-size-lg mt-2">View and manage your
-                                                            assigned tickets
-                                                        </div>
-                                                    </div>
-                                                    <div class="mt-4">
-                                                        <a href="{{ url('/my_assignments') }}"
-                                                           class="btn btn-white font-weight-bold py-3 px-6">View
-                                                            Assignments</a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endcan
-                                </div>
-                            @endcanany
-                        </div>
-                        <!-- End of Heading and Boxes -->
+        <div class="dashboard-container">
+            <!-- Greeting Section -->
+            <div class="greeting-section">
+                <div>
+                    <h2 class="greeting-title">Good Morning, {{ explode(' ', trim(auth()->user()->name))[0] }} 👋</h2>
+                    <div class="last-login-text">
+                        <i class="flaticon-clock-1 last-login-icon"></i>
+                        Last Login: {{ auth()->user()->last_login }}
                     </div>
                 </div>
-                <!--end::Card-->
-
-                @if($user_has_kpi_chart_permission)
-                    <!--begin::Card-->
-                    <div class="card card-custom gutter-b mt-5">
-                        <div class="card-header">
-                            <div class="card-title">
-                                <h3 class="card-label">KPI Status Chart</h3>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="kpiChart" style="max-height: 400px;"></canvas>
-                        </div>
-                    </div>
-                    <!--end::Card-->
-                @endif
-
             </div>
-            <!--end::Container-->
+
+            <!-- Hero Banner: Create CR -->
+            @can('Create ChangeRequest')
+                <div class="hero-banner">
+                    <div class="hero-content">
+                        <h3 class="hero-title">Create CR</h3>
+                        <p class="hero-subtitle">Submit a new change in seconds</p>
+                        <a href="{{ url('/change_request/workflow/type') }}" class="btn-hero-action">Create Now <i
+                                class="flaticon2-next ml-2"></i></a>
+                    </div>
+                    <!-- 3D Illustration Area -->
+                    <div class="hero-illustration">
+                        <img src="{{ asset('public/new_theme/assets/media/svg/illustrations/working.svg') }}"
+                            alt="Create CR" style="max-height: 200px; opacity: 0.9;">
+                        <!-- Replaced missing design-release.svg with working.svg -->
+                    </div>
+                </div>
+            @endcan
+
+            <div class="actions-grid">
+                <!-- Quick Search -->
+                @can('Access Search')
+                    <a href="{{ url('/searchs') }}" class="action-card text-decoration-none">
+                        <div class="card-icon-wrapper">
+                            <i class="flaticon-search card-icon"></i>
+                        </div>
+                        <h4 class="card-title">Quick Search</h4>
+                        <p class="card-description">Locate specific change requests by ID, title, or requester name using our
+                            search tool.</p>
+                        <span class="card-action-link">Quick search <i class="flaticon2-next"></i></span>
+                    </a>
+                @endcan
+
+                <!-- Advanced Filters -->
+                @can('Access Advanced Search')
+                    <a href="{{ url('/search/advanced_search') }}" class="action-card text-decoration-none">
+                        <div class="card-icon-wrapper">
+                            <i class="flaticon2-search-1 card-icon"></i>
+                        </div>
+                        <h4 class="card-title">Advanced Search</h4>
+                        <p class="card-description">Drill down into specific departments, status transitions, or priority levels
+                            for deep insights.</p>
+                        <span class="card-action-link">Advance View <i class="flaticon2-next"></i></span>
+                    </a>
+                @endcan
+
+                <!-- My Assignments -->
+                @can('My Assignments')
+                    <a href="{{ url('/my_assignments') }}" class="action-card text-decoration-none">
+                        <div class="card-icon-wrapper">
+                            <i class="flaticon-list-3 card-icon"></i>
+                        </div>
+                        <h4 class="card-title">My Assignments</h4>
+                        <p class="card-description">Track change requests waiting for your approval or action in the current
+                            sprint cycle.</p>
+                        <span class="card-action-link">View Tasks <i class="flaticon2-next"></i></span>
+                    </a>
+                @endcan
+            </div>
+
+            <!-- KPI Chart (Preserved) -->
+            @if($user_has_kpi_chart_permission)
+                <!-- <div class="card card-custom gutter-b mt-10">
+                                                            <div class="card-header border-0">
+                                                                <div class="card-title">
+                                                                    <h3 class="card-label">KPI Status Chart</h3>
+                                                                </div>
+                                                            </div>
+                                                            <div class="card-body">
+                                                                <canvas id="kpiChart" style="max-height: 400px;"></canvas>
+                                                            </div>
+                                                        </div> -->
+            @endif
         </div>
-        <!--end::Entry-->
     </div>
-    <!--end::Content-->
-
 @endsection
 
 @if($user_has_kpi_chart_permission)
