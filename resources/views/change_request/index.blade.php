@@ -414,9 +414,6 @@
             }
             $(this).find('.js-toggle-cr-details').trigger('click');
         });
-        $(function () {
-            $('tr.cr-row:first').find('.js-toggle-cr-details').trigger('click');
-        });
     </script>
 
     <script>
