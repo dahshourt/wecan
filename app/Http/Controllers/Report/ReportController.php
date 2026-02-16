@@ -184,8 +184,7 @@ technical_implementation_ranked AS (
 
     public function actualVsPlanned(Request $request)
     {
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -262,6 +261,20 @@ technical_implementation_ranked AS (
                 apps.name AS `Applications`,
                 req.title,
                 flow.name AS `CR Type`,
+                CASE 
+                    WHEN req.hold = '0' THEN 'N/A'
+                    WHEN req.hold = '1' THEN 'YES'
+                END AS 'On Hold',
+                CASE 
+                    WHEN req.top_management = '0' THEN 'N/A'
+                    WHEN req.top_management = '1' THEN 'YES'
+                END AS 'Top Management',
+                CASE 
+                WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+                WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+                WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+                ELSE 'N/A' 
+                END AS 'Ticket Type',
                 req.start_design_time AS `Design Estimation Planned Start`,
                 req.end_design_time AS `Design Estimation Planned End`,
                 designprogress.created_at AS DesignInProgressActualStart,
@@ -295,14 +308,10 @@ technical_implementation_ranked AS (
             $query->where('req.hold', $on_hold);
         }
 
-        if ($depend_on) {
-            $query->where('dpnd_on.custom_field_value', $depend_on);
+         if ($ticket_type) {
+            $query->where('dpnd_on.custom_field_value', $ticket_type);
         }
-
-        if ($relevant_with) {
-            $query->where('rlvvnt.custom_field_value', $relevant_with);
-        }
-
+  
         $query->groupBy("req.cr_no");
 
         // handle export
@@ -322,8 +331,7 @@ technical_implementation_ranked AS (
      */
     public function allCrsByRequester(Request $request)
     {
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -413,6 +421,20 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'Workflow Type',
+        CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+        END AS 'On Hold',
+        CASE 
+            WHEN req.top_management = '0' THEN 'N/A'
+            WHEN req.top_management = '1' THEN 'YES'
+        END AS 'Top Management',
+        CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+        END AS 'Ticket Type',
         'Not Found' as 'CR Type',
         'NA' as 'Vendor Name',
          GROUP_CONCAT(DISTINCT stat.status_name ORDER BY stat.status_name SEPARATOR ', ') AS 'Current Status',
@@ -521,14 +543,9 @@ $query = "
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
+        if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
 
         $query .= " GROUP BY req.cr_no";
@@ -683,8 +700,7 @@ $query = "
         $status_ids = $request->input('status_ids', []);      // array
         $cr_nos = $request->input('cr_nos');                 // optional text field "CR001,CR002"
 
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -723,6 +739,24 @@ $query = "
                 'apps.name as Applications',
                 'req.title',
                 'flow.name as Workflow_Type',
+                DB::raw("
+                    CASE 
+                        WHEN req.hold = '0' THEN 'N/A'
+                        WHEN req.hold = '1' THEN 'YES'
+                    END AS 'On Hold'
+                "),
+                DB::raw("
+                    CASE 
+                        WHEN req.top_management = '0' THEN 'N/A'
+                        WHEN req.top_management = '1' THEN 'YES'
+                    END AS 'Top Management'
+                "),
+                DB::raw("CASE 
+                    WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+                    WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+                    WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+                    ELSE 'N/A' 
+                END AS Ticket_Type"),
                 DB::raw("'NA' as Vendor_Name"),
                 DB::raw("GROUP_CONCAT(DISTINCT stat.status_name ORDER BY stat.status_name SEPARATOR ', ') as Current_Status"),
                 DB::raw("CONCAT(sla.unit_sla_time, ' ', sla.sla_type_unit) as Assigned_SLA"),
@@ -763,14 +797,10 @@ $query = "
         if ($on_hold) {
             $query->where('req.hold', $on_hold);
         }
-
-        if ($depend_on) {
-            $query->where('dpnd_on.custom_field_value', $depend_on);
+        if ($ticket_type) {
+            $query->where('dpnd_on.custom_field_value', $ticket_type);
         }
-
-        if ($relevant_with) {
-            $query->where('rlvvnt.custom_field_value', $relevant_with);
-        }
+ 
 
         $results = collect($query->get());
 
@@ -801,8 +831,7 @@ $query = "
      */
     public function crCrossedSla(Request $request)
     {
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -853,6 +882,20 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'Workflow Type',
+        CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+        END AS 'On Hold',
+        CASE 
+        WHEN req.top_management = '0' THEN 'N/A'
+        WHEN req.top_management = '1' THEN 'YES'
+        END AS 'Top Management',
+        CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+        END AS 'Ticket Type',
         req.start_design_time 'Pending Design Planned Start',
         req.end_design_time 'Pending Design Planned End',
         pend_design.created_at AS PendingDesignActualStart,
@@ -919,14 +962,9 @@ $query = "
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
+        if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
         // end new filter
 
@@ -969,8 +1007,7 @@ $query = "
      */
     public function rejectedCrs(Request $request)
     {
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -984,6 +1021,20 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'CR Type',
+        CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+        END AS 'On Hold',
+        CASE 
+        WHEN req.top_management = '0' THEN 'N/A'
+        WHEN req.top_management = '1' THEN 'YES'
+        END AS 'Top Management',
+        CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+        END AS 'Ticket Type',
    --     chang_stat_reject.created_at 'Review and estimation start date' ,
     --    chang_stat_reject.updated_at 'Review and estimation start date' ,
      --   chang_stat_analysis.created_at 'Analysis start date',
@@ -1091,14 +1142,9 @@ $query = "
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
+         if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
         // end new filter
 
@@ -1152,8 +1198,7 @@ $query = "
         $status_name = $request->input('status_name');
         $department_id = $request->input('department_id');
 
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -1224,6 +1269,20 @@ SELECT
     categry.`name` AS 'Category',
     stat.status_name AS 'Current Status',
     req.requester_name,
+    CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+    END AS 'On Hold',
+    CASE 
+    WHEN req.top_management = '0' THEN 'N/A'
+    WHEN req.top_management = '1' THEN 'YES'
+    END AS 'Top Management',
+    CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+    END AS 'Ticket Type',
     apps.`name` AS 'Targeted System',
     technical_team.title AS 'Technical Team',
     IF(req.start_design_time > 0 AND req.end_design_time > 0, 'Design', 'No Design') AS 'Design Status',
@@ -1448,15 +1507,9 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
-           // dd($depend_on);
+        if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
 
         if ($to_date) {
@@ -1527,8 +1580,7 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
         $status_name = $request->input('status_name');
         $department_id = $request->input('department_id');
 
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -1634,6 +1686,20 @@ SELECT
     categry.`name` AS 'Category',
     stat.status_name AS 'Current Status',
     req.requester_name,
+    CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+    END AS 'On Hold', 
+    CASE 
+    WHEN req.top_management = '0' THEN 'N/A'
+    WHEN req.top_management = '1' THEN 'YES'
+    END AS 'Top Management',
+    CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+    END AS 'Ticket Type',
     apps.`name` AS 'Targeted System',
     technical_team.title AS 'Technical Team',
     IF(req.start_design_time > 0 AND req.end_design_time > 0, 'Design', 'No Design') AS 'Design Status',
@@ -1908,15 +1974,9 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
-           // dd($depend_on);
+        if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
         
 
