@@ -25,7 +25,6 @@
         </thead>
         <tbody>
         @if($collection)
-
             @foreach ($collection as $item)
                 @php
 
@@ -84,14 +83,12 @@
                             <td></td>
                         @endif
                     </tr>
-                @endif
 
-
-                @php
-                    $detailsColspan = 12;
-                    $statuses = $item->getallCurrentStatus();
-                @endphp
-                <tr class="cr-details-row" data-cr-id="{{ $item->id }}" style="display:none;">
+                    @php
+                        $detailsColspan = 12;
+                        $statuses = $item->getallCurrentStatus();
+                    @endphp
+                    <tr class="cr-details-row" data-cr-id="{{ $item->id }}" style="display:none;">
                     <td colspan="{{ $detailsColspan }}" class="p-0">
                         <div style="background: #f8f9fb; padding: 1.25rem 1rem; border-top: 2px solid #e4e6ef;">
 
@@ -174,6 +171,7 @@
                         </div>
                     </td>
                 </tr>
+                @endif
 
             @endforeach
         @else
@@ -183,36 +181,4 @@
         @endif
         </tbody>
     </table>
-    <!--end: Datatable-->
 </div>
-
-<!-- Description Modal -->
-<div class="modal fade" id="descriptionModal" tabindex="-1" role="dialog" aria-labelledby="descriptionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="descriptionModalLabel">Full Description</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body" style="white-space: pre-wrap;"></div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light-primary font-weight-bold" data-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-@push('css')
-<style>
-.description-preview {
-    cursor: pointer;
-    transition: color 0.2s;
-}
-
-.description-preview:hover {
-    color: #0056b3 !important;
-}
-</style>
-@endpush

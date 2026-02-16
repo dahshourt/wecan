@@ -95,77 +95,57 @@
                             $activeGroupKey = null;
                             $activeWorkflowId = null;
 
-                            // Check all query parameters for type_{groupKey}_{workflowId} pattern
-                            $queryParams = request()->query();
-                            foreach ($queryParams as $key => $value) {
-                                if (strpos($key, 'type_') === 0) {
-                                    // Pattern: type_{groupKey}_{workflowId}
-                                    // Example: type_all_3 or type_12_5
-                                    $parts = explode('_', $key);
-                                    if (count($parts) >= 3) {
-                                        // Extract groupKey (could be "all" or a number like "12")
-                                        $extractedGroupKey = $parts[1];
-                                        $extractedWorkflowId = (int) $parts[2];
-                                        
-                                        // Check if this group key exists in our tabs
-                                        // Handle both string and numeric comparisons
+                            // Check query parameters for type_{groupKey}_{workflowId} pattern
+                            foreach (request()->query() as $key => $value) {
+                                if (str_starts_with($key, 'type_')) {
+                                    $parts = explode('_', $key, 3);
+                                    if (count($parts) === 3) {
+                                        $urlGroupKey = $parts[1];
+                                        // Check if this group key exists (handle both string and int keys)
                                         foreach ($groupKeys as $gk) {
-                                            if ((string)$gk === (string)$extractedGroupKey) {
-                                                $activeGroupKey = $gk; // Use the actual key from array
-                                                $activeWorkflowId = $extractedWorkflowId;
-                                                break 2; // Break out of both loops
+                                            if ((string)$gk === (string)$urlGroupKey) {
+                                                $activeGroupKey = $gk;
+                                                $activeWorkflowId = (int) $parts[2];
+                                                break 2;
                                             }
                                         }
                                     }
                                 }
                             }
 
-                            // Default to first group and first workflow if not found or invalid
-                            if (!$activeGroupKey || !array_key_exists($activeGroupKey, $groupTabs)) {
+                            // Default to first group if not found
+                            if ($activeGroupKey === null) {
                                 $activeGroupKey = $groupKeys[0] ?? null;
                             }
 
-                            // If we have a group but no workflow, use first workflow of that group
-                            if ($activeGroupKey && !$activeWorkflowId) {
-                                $firstWorkflowId = $groupTabs[$activeGroupKey]['workflow_ids'][0] ?? null;
-                                $activeWorkflowId = $firstWorkflowId ? (int) $firstWorkflowId : null;
-                            }
-
-                            // Validate workflow exists in the active group
-                            if ($activeGroupKey && $activeWorkflowId) {
+                            // Validate workflow exists in active group and set default if needed
+                            if ($activeGroupKey !== null) {
                                 $validWorkflows = $groupTabs[$activeGroupKey]['workflow_ids'] ?? [];
-                                // Convert to integers for comparison
-                                $validWorkflows = array_map('intval', $validWorkflows);
-                                if (!in_array($activeWorkflowId, $validWorkflows, true)) {
+                                if (!$activeWorkflowId || !in_array($activeWorkflowId, $validWorkflows)) {
                                     $activeWorkflowId = (int) ($validWorkflows[0] ?? null);
                                 }
                             }
                         @endphp
 
                         @if(!empty($groupTabs))
-                            <!--begin::Group Tabs (top level, client-side like Top Management CRS)-->
+                            <!--begin::Group Tabs-->
                             <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-2x nav-tabs-line-primary mb-5" role="tablist">
                                 @foreach($groupTabs as $groupKey => $info)
-                                    @php
-                                        $firstWorkflowIdForGroup = $info['workflow_ids'][0] ?? null;
-                                    @endphp
+                                    @php $isActiveGroup = $groupKey === $activeGroupKey; @endphp
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center {{ $groupKey === $activeGroupKey ? 'active' : '' }}"
+                                        <a class="nav-link d-flex align-items-center {{ $isActiveGroup ? 'active' : '' }}"
                                            data-toggle="tab"
                                            href="#group_tab_{{ $groupKey }}"
                                            role="tab"
-                                           aria-selected="{{ $groupKey === $activeGroupKey ? 'true' : 'false' }}"
+                                           aria-selected="{{ $isActiveGroup ? 'true' : 'false' }}"
                                            data-group="{{ $groupKey }}"
-                                           @if($firstWorkflowIdForGroup)
-                                               data-first-workflow="{{ $firstWorkflowIdForGroup }}"
-                                           @endif
-                                        >
+                                           data-first-workflow="{{ $info['workflow_ids'][0] ?? '' }}">
                                             <span class="nav-icon mr-2">
                                                 <i class="flaticon2-layers-1 icon-lg"></i>
                                             </span>
                                             <span class="nav-text font-weight-bolder">{{ $info['label'] }}</span>
                                             @if($info['total_count'] > 0)
-                                                <span class="label label-light-{{ $groupKey === $activeGroupKey ? 'primary' : 'dark' }}-inline label-pill font-weight-bold ml-2">
+                                                <span class="label label-light-{{ $isActiveGroup ? 'primary' : 'dark' }}-inline label-pill font-weight-bold ml-2">
                                                     {{ $info['total_count'] }}
                                                 </span>
                                             @endif
@@ -178,22 +158,21 @@
                             <div class="tab-content">
                                 @foreach($groupTabs as $groupKey => $info)
                                     @php
-                                        $workflowsIdsForGroup = $info['workflow_ids'];
-                                        $workflowsForGroup = $active_work_flows->whereIn('id', $workflowsIdsForGroup);
+                                        $workflowsForGroup = $active_work_flows->whereIn('id', $info['workflow_ids']);
+                                        $isActiveGroup = $groupKey === $activeGroupKey;
                                     @endphp
-                                    <div class="tab-pane fade {{ $groupKey === $activeGroupKey ? 'show active' : '' }}"
+                                    <div class="tab-pane fade {{ $isActiveGroup ? 'show active' : '' }}"
                                          id="group_tab_{{ $groupKey }}"
                                          role="tabpanel">
 
-                                        @if($workflowsForGroup->count() > 0)
-                                            <!--begin::Workflow Tabs inside group (like old design)-->
-                                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-3x nav-tabs-line-primary mb-5"
-                                                role="tablist">
+                                        @if($workflowsForGroup->isNotEmpty())
+                                            <!--begin::Workflow Tabs-->
+                                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-3x nav-tabs-line-primary mb-5" role="tablist">
                                                 @foreach($workflowsForGroup as $workflow)
                                                     @php
-                                                        $isActiveWorkflow = ($groupKey === $activeGroupKey && $workflow->id === $activeWorkflowId);
+                                                        $isActiveWorkflow = $isActiveGroup && $workflow->id === $activeWorkflowId;
                                                         $collection = $crs_by_user_groups_by_workflow[$groupKey][$workflow->id] ?? null;
-                                                        $workflowCount = $collection && method_exists($collection, 'total') ? $collection->total() : 0;
+                                                        $workflowCount = $collection?->total() ?? 0;
                                                     @endphp
                                                     <li class="nav-item">
                                                         <a class="nav-link {{ $isActiveWorkflow ? 'active' : '' }}"
@@ -220,12 +199,12 @@
                                                 @foreach($workflowsForGroup as $workflow)
                                                     @php
                                                         $collection = $crs_by_user_groups_by_workflow[$groupKey][$workflow->id] ?? null;
-                                                        $isActiveWorkflow = ($groupKey === $activeGroupKey && $workflow->id === $activeWorkflowId);
+                                                        $isActiveWorkflow = $isActiveGroup && $workflow->id === $activeWorkflowId;
                                                     @endphp
                                                     <div class="tab-pane fade {{ $isActiveWorkflow ? 'show active' : '' }}"
                                                          id="workflow_tab_{{ $groupKey }}_{{ $workflow->id }}"
                                                          role="tabpanel">
-                                                        @if($collection && $collection->count() > 0)
+                                                        @if($collection?->isNotEmpty())
                                                             @if($workflow->id === 3)
                                                                 <x-crs.in-house :is-not-viewer="$user_is_not_viewer" :user-group="$user_group" :collection="$collection" />
                                                             @elseif($workflow->id === 5)
@@ -234,11 +213,9 @@
                                                                 <x-crs.promo :is-not-viewer="$user_is_not_viewer" :user-group="$user_group" :collection="$collection" />
                                                             @endif
 
-                                                            <!--begin: Pagination-->
                                                             <div class="d-flex justify-content-center mt-5">
                                                                 {{ $collection->links() }}
                                                             </div>
-                                                            <!--end: Pagination-->
                                                         @else
                                                             <div class="alert alert-light text-center" role="alert">
                                                                 <i class="la la-inbox text-muted" style="font-size: 3rem;"></i>
@@ -279,12 +256,39 @@
             <!--end::Entry-->
         </div>
         <!--end::Content-->
+
+        <!-- Description Modal -->
+        <div class="modal fade" id="descriptionModal" tabindex="-1" role="dialog" aria-labelledby="descriptionModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="descriptionModalLabel">Full Description</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body" style="white-space: pre-wrap;"></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light-primary font-weight-bold" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
 @endsection
 
 @push('css')
     <style>
+        .description-preview {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .description-preview:hover {
+            color: #0056b3 !important;
+        }
+
         /* Enhanced Tab Styling */
         .nav-tabs-line-3x {
             padding: 0.5rem 0;
@@ -391,7 +395,9 @@
             var id = $btn.data('cr-id');
             var $row = $btn.closest('tr');
             console.log("clicked", id, $row);
-            var $details = $('tr.cr-details-row[data-cr-id="' + id + '"]');
+            // Find details row only within the same table to avoid duplicates across tabs
+            var $table = $row.closest('table');
+            var $details = $table.find('tr.cr-details-row[data-cr-id="' + id + '"]');
             var expanded = $btn.attr('aria-expanded') === 'true';
 
             if (expanded) {
