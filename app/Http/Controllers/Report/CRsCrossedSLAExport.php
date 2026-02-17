@@ -36,6 +36,21 @@ class CRsCrossedSLAExport implements FromCollection, WithHeadings
                 apps.`name` AS Applications,
                 req.title,
                 flow.`name` AS WorkflowType,
+                'N\A' as 'On Behalf',
+                CASE 
+                    WHEN req.hold = '0' THEN 'N/A'
+                    WHEN req.hold = '1' THEN 'YES'
+                END AS 'On Hold',
+                CASE 
+                    WHEN req.top_management = '0' THEN 'N/A'
+                    WHEN req.top_management = '1' THEN 'YES'
+                END AS 'Top Management',
+                CASE 
+                    WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+                    WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+                    WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+                    ELSE 'N/A' 
+                END AS 'Ticket Type',
                 req.start_design_time AS PendingDesignPlannedStart,
                 req.end_design_time AS PendingDesignPlannedEnd,
                 pend_design.created_at AS PendingDesignActualStart,
@@ -61,6 +76,7 @@ class CRsCrossedSLAExport implements FromCollection, WithHeadings
             FROM change_request AS req
             LEFT JOIN applications AS apps ON apps.id = req.application_id
             LEFT JOIN workflow_type AS flow ON flow.id = req.workflow_type_id
+            LEFT JOIN change_request_custom_fields AS dpnd_on ON dpnd_on.cr_id = req.id AND dpnd_on.custom_field_name = 'cr_type'
             LEFT JOIN pend_design_ranked pend_design ON pend_design.cr_id = req.id AND pend_design.rn = 1
             LEFT JOIN pend_implementaion_ranked pend_implement ON pend_implement.cr_id = req.id AND pend_implement.rn = 1
             LEFT JOIN pend_testing_ranked pend_test ON pend_test.cr_id = req.id AND pend_test.rn = 1
@@ -91,6 +107,10 @@ class CRsCrossedSLAExport implements FromCollection, WithHeadings
             'Applications',
             'Title',
             'Workflow Type',
+            'On Behalf',
+            'On Hold',
+            'Top Management',
+            'Ticket Type',
             'Pending Design Planned Start',
             'Pending Design Planned End',
             'Pending Design Actual Start',

@@ -84,6 +84,21 @@ SELECT
     apps.`name` AS Applications,
     req.title,
     flow.`name` AS 'Workflow Type',
+    'N\A' as 'On Behalf',
+    CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+    END AS 'On Hold',
+    CASE 
+        WHEN req.top_management = '0' THEN 'N/A'
+        WHEN req.top_management = '1' THEN 'YES'
+    END AS 'Top Management',
+    CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+    END AS 'Ticket Type',
     'Not Found' AS 'CR Type',
     'NA' AS 'Vendor Name',
     GROUP_CONCAT(DISTINCT stat.status_name ORDER BY stat.status_name SEPARATOR ', ') AS `Current Status`,
@@ -142,6 +157,7 @@ LEFT JOIN sanity_check_ranked sanity_check ON sanity_check.cr_id = req.id AND sa
 LEFT JOIN delivred_cr_ranked delivred_cr ON delivred_cr.cr_id = req.id AND delivred_cr.rn = 1
 LEFT JOIN change_request_custom_fields AS ch_cus_fields ON ch_cus_fields.cr_id = req.id AND ch_cus_fields.custom_field_id = 46
 LEFT JOIN change_request_custom_fields AS ch_cus_fields_tst ON ch_cus_fields_tst.cr_id = req.id AND ch_cus_fields_tst.custom_field_id = 47
+LEFT JOIN change_request_custom_fields AS dpnd_on ON dpnd_on.cr_id = req.id AND dpnd_on.custom_field_name = 'cr_type'
 LEFT JOIN change_request_statuses AS chang_stat_pend_prod_deploy ON chang_stat_pend_prod_deploy.cr_id = req.id AND chang_stat_pend_prod_deploy.new_status_id = 17
 LEFT JOIN change_request_statuses AS chang_stat_pend_busen_fedbk ON chang_stat_pend_busen_fedbk.cr_id = req.id AND chang_stat_pend_busen_fedbk.new_status_id = 79
 LEFT JOIN change_request_statuses AS chang_stat_busen_tst_cas_appval ON chang_stat_busen_tst_cas_appval.cr_id = req.id AND chang_stat_busen_tst_cas_appval.new_status_id = 41
@@ -170,6 +186,11 @@ GROUP BY req.cr_no;
             'Applications',
             'title',
             'Workflow Type',
+            'On Behalf',
+            'On Hold',
+            'Top Management',
+            'Ticket Type',
+            'CR Type',
             'CR Type',
             'Vendor Name',
             'Current Status',
