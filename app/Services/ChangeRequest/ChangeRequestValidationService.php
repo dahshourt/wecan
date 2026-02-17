@@ -60,14 +60,14 @@ class ChangeRequestValidationService
 
         $technicalDefaultGroup = session('default_group') ?: auth()->user()->default_group;
         $cr = Change_request::find($id);
-        $technicalCr = TechnicalCr::where('cr_id', $id)->whereRaw('CAST(status AS CHAR) = ?', ['0'])->latest()->first();
+        $technicalCr = TechnicalCr::where('cr_id', $id)->orderBy('id', 'desc')->first();
 
-        if (!$technicalCr) {
+        if (!$technicalCr || $technicalCr->status != '0') {
             return false;
         }
         $updateService = new ChangeRequestUpdateService();
         $updateService->mirrorCrStatusToTechStreams($id, (int) $workflow->workflowstatus[0]->to_status_id, null, 'actor');
-        
+
 
         $this->processTechnicalTeamStatus($technicalCr, $oldStatusData, $workflow, $technicalDefaultGroup, $request);
         //dd($cr, $statusData, $request, $this->active_flag);

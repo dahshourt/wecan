@@ -534,11 +534,11 @@ class ChangeRequestStatusService
             // ════════════════════════════════════════════════════════════════
 
             // Get the workflow ID dynamically for "Need Update" transition
-           $needUpdateWorkflowIds = $this->getAllNeedUpdateWorkflowIds($changeRequestId);
+            $needUpdateWorkflowIds = $this->getAllNeedUpdateWorkflowIds($changeRequestId);
 
 
-           if (isset($statusData['new_status_id']) && !empty($needUpdateWorkflowIds) && in_array($statusData['new_status_id'], $needUpdateWorkflowIds)) {
-    Log::info('Need Update detected (workflow ID ' . $statusData['new_status_id'] . ' in [' . implode(',', $needUpdateWorkflowIds) . ']) - bypassing normal workflow', [
+            if (isset($statusData['new_status_id']) && !empty($needUpdateWorkflowIds) && in_array($statusData['new_status_id'], $needUpdateWorkflowIds)) {
+                Log::info('Need Update detected (workflow ID ' . $statusData['new_status_id'] . ' in [' . implode(',', $needUpdateWorkflowIds) . ']) - bypassing normal workflow', [
                     'cr_id' => $changeRequestId,
                     'status_id' => $statusData['new_status_id']
                 ]);
@@ -1135,9 +1135,9 @@ class ChangeRequestStatusService
         $oldStatusId = $request['old_status_id'] ?? $request->old_status_id ?? null;
         $newWorkflowId = $request['new_workflow_id'] ?? null;
 
-        if (!$newStatusId || !$oldStatusId) {
-            throw new InvalidArgumentException('Missing required status IDs');
-        }
+        // if (!$newStatusId || !$oldStatusId) {
+        //     throw new InvalidArgumentException('Missing required status IDs');
+        // }
 
         return [
             'new_status_id' => $newStatusId,
@@ -1571,7 +1571,7 @@ class ChangeRequestStatusService
         // ✨ SPECIAL CASE: "Need Update" from Workflow B statuses
         // Handle transitions from Workflow B back to "Pending Create Agreed Scope"
         // ════════════════════════════════════════════════════════════
-        
+
         $workflowBStatuses = [
             'Pending Agreed Scope Approval-SA',
             'Pending Agreed Scope Approval-Vendor',
@@ -1625,7 +1625,7 @@ class ChangeRequestStatusService
         // ════════════════════════════════════════════════════════════
         // Check if we're transitioning from "Pending Create Agreed Scope"
         // ════════════════════════════════════════════════════════════
-        
+
         if ($oldStatus && $oldStatus->status_name == 'Pending Create Agreed Scope') {
 
             Log::info('Transitioning FROM Pending Create Agreed Scope', [
