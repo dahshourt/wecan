@@ -184,8 +184,7 @@ technical_implementation_ranked AS (
 
     public function actualVsPlanned(Request $request)
     {
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -262,6 +261,21 @@ technical_implementation_ranked AS (
                 apps.name AS `Applications`,
                 req.title,
                 flow.name AS `CR Type`,
+                'N\A' as 'On Behalf',
+                CASE 
+                    WHEN req.hold = '0' THEN 'N/A'
+                    WHEN req.hold = '1' THEN 'YES'
+                END AS 'On Hold',
+                CASE 
+                    WHEN req.top_management = '0' THEN 'N/A'
+                    WHEN req.top_management = '1' THEN 'YES'
+                END AS 'Top Management',
+                CASE 
+                WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+                WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+                WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+                ELSE 'N/A' 
+                END AS 'Ticket Type',
                 req.start_design_time AS `Design Estimation Planned Start`,
                 req.end_design_time AS `Design Estimation Planned End`,
                 designprogress.created_at AS DesignInProgressActualStart,
@@ -295,14 +309,10 @@ technical_implementation_ranked AS (
             $query->where('req.hold', $on_hold);
         }
 
-        if ($depend_on) {
-            $query->where('dpnd_on.custom_field_value', $depend_on);
+         if ($ticket_type) {
+            $query->where('dpnd_on.custom_field_value', $ticket_type);
         }
-
-        if ($relevant_with) {
-            $query->where('rlvvnt.custom_field_value', $relevant_with);
-        }
-
+  
         $query->groupBy("req.cr_no");
 
         // handle export
@@ -322,8 +332,7 @@ technical_implementation_ranked AS (
      */
     public function allCrsByRequester(Request $request)
     {
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -413,8 +422,24 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'Workflow Type',
+        'N\A' as 'On Behalf',
+        CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+        END AS 'On Hold',
+        CASE 
+            WHEN req.top_management = '0' THEN 'N/A'
+            WHEN req.top_management = '1' THEN 'YES'
+        END AS 'Top Management',
+        CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+        END AS 'Ticket Type',
         'Not Found' as 'CR Type',
         'NA' as 'Vendor Name',
+         
          GROUP_CONCAT(DISTINCT stat.status_name ORDER BY stat.status_name SEPARATOR ', ') AS 'Current Status',
 --        review_estimate.created_at 'Review And Estimation Start',
 --        review_estimate.updated_at 'Review And Estimation End',
@@ -521,14 +546,9 @@ $query = "
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
+        if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
 
         $query .= " GROUP BY req.cr_no";
@@ -683,8 +703,7 @@ $query = "
         $status_ids = $request->input('status_ids', []);      // array
         $cr_nos = $request->input('cr_nos');                 // optional text field "CR001,CR002"
 
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -723,6 +742,25 @@ $query = "
                 'apps.name as Applications',
                 'req.title',
                 'flow.name as Workflow_Type',
+                DB::raw("'N/A' as 'On Behalf'"),
+                DB::raw("
+                    CASE 
+                        WHEN req.hold = '0' THEN 'N/A'
+                        WHEN req.hold = '1' THEN 'YES'
+                    END AS 'On Hold'
+                "),
+                DB::raw("
+                    CASE 
+                        WHEN req.top_management = '0' THEN 'N/A'
+                        WHEN req.top_management = '1' THEN 'YES'
+                    END AS 'Top Management'
+                "),
+                DB::raw("CASE 
+                    WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+                    WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+                    WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+                    ELSE 'N/A' 
+                END AS Ticket_Type"),
                 DB::raw("'NA' as Vendor_Name"),
                 DB::raw("GROUP_CONCAT(DISTINCT stat.status_name ORDER BY stat.status_name SEPARATOR ', ') as Current_Status"),
                 DB::raw("CONCAT(sla.unit_sla_time, ' ', sla.sla_type_unit) as Assigned_SLA"),
@@ -763,14 +801,10 @@ $query = "
         if ($on_hold) {
             $query->where('req.hold', $on_hold);
         }
-
-        if ($depend_on) {
-            $query->where('dpnd_on.custom_field_value', $depend_on);
+        if ($ticket_type) {
+            $query->where('dpnd_on.custom_field_value', $ticket_type);
         }
-
-        if ($relevant_with) {
-            $query->where('rlvvnt.custom_field_value', $relevant_with);
-        }
+ 
 
         $results = collect($query->get());
 
@@ -801,8 +835,7 @@ $query = "
      */
     public function crCrossedSla(Request $request)
     {
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -853,6 +886,21 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'Workflow Type',
+        'N\A' as 'On Behalf',
+        CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+        END AS 'On Hold',
+        CASE 
+        WHEN req.top_management = '0' THEN 'N/A'
+        WHEN req.top_management = '1' THEN 'YES'
+        END AS 'Top Management',
+        CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+        END AS 'Ticket Type',
         req.start_design_time 'Pending Design Planned Start',
         req.end_design_time 'Pending Design Planned End',
         pend_design.created_at AS PendingDesignActualStart,
@@ -919,14 +967,9 @@ $query = "
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
+        if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
         // end new filter
 
@@ -969,8 +1012,7 @@ $query = "
      */
     public function rejectedCrs(Request $request)
     {
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -984,6 +1026,21 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'CR Type',
+        'N\A' as 'On Behalf',
+        CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+        END AS 'On Hold',
+        CASE 
+        WHEN req.top_management = '0' THEN 'N/A'
+        WHEN req.top_management = '1' THEN 'YES'
+        END AS 'Top Management',
+        CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+        END AS 'Ticket Type',
    --     chang_stat_reject.created_at 'Review and estimation start date' ,
     --    chang_stat_reject.updated_at 'Review and estimation start date' ,
      --   chang_stat_analysis.created_at 'Analysis start date',
@@ -1091,14 +1148,9 @@ $query = "
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
+         if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
         // end new filter
 
@@ -1152,8 +1204,7 @@ $query = "
         $status_name = $request->input('status_name');
         $department_id = $request->input('department_id');
 
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -1223,7 +1274,22 @@ SELECT
     req.cr_no,
     categry.`name` AS 'Category',
     stat.status_name AS 'Current Status',
+    'N\A' as 'On Behalf',
     req.requester_name,
+    CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+    END AS 'On Hold',
+    CASE 
+    WHEN req.top_management = '0' THEN 'N/A'
+    WHEN req.top_management = '1' THEN 'YES'
+    END AS 'Top Management',
+    CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+    END AS 'Ticket Type',
     apps.`name` AS 'Targeted System',
     technical_team.title AS 'Technical Team',
     IF(req.start_design_time > 0 AND req.end_design_time > 0, 'Design', 'No Design') AS 'Design Status',
@@ -1282,43 +1348,83 @@ IF(req.start_design_time > 0 AND req.end_design_time > 0,
 
     -- Pending Design Document Approval QC 
     IF(
-        IF(pedig_dishn_doc_appov_val.sla_type_unit = 'day', 
-           (TIMESTAMPDIFF(DAY, pedig_dishn_doc_appov_stats.created_at, pedig_dishn_doc_appov_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pedig_dishn_doc_appov_stats.created_at, pedig_dishn_doc_appov_stats.updated_at) + WEEKDAY(pedig_dishn_doc_appov_stats.created_at) + 1) / 7) * 2)),
-           (TIMESTAMPDIFF(DAY, pedig_dishn_doc_appov_stats.created_at, pedig_dishn_doc_appov_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pedig_dishn_doc_appov_stats.created_at, pedig_dishn_doc_appov_stats.updated_at) + WEEKDAY(pedig_dishn_doc_appov_stats.created_at) + 1) / 7) * 2)) * 8
-        ) <= pedig_dishn_doc_appov_val.unit_sla_time, 'Meet SLA', 'No Meet SLA'
-    ) AS 'Pending Design Document Approval QC ',
+        -- GATEKEEPER: Check if Design Status would be 'No Design'
+        req.start_design_time <= 0 OR req.end_design_time <= 0 OR req.start_design_time IS NULL,
+        'N/A',
+        -- CALCULATION: Run the SLA logic only if Design exists
+        IF(
+            IF(pedig_dishn_doc_appov_val.sla_type_unit = 'day', 
+            (TIMESTAMPDIFF(DAY, pedig_dishn_doc_appov_stats.created_at, pedig_dishn_doc_appov_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pedig_dishn_doc_appov_stats.created_at, pedig_dishn_doc_appov_stats.updated_at) + WEEKDAY(pedig_dishn_doc_appov_stats.created_at) + 1) / 7) * 2)),
+            (TIMESTAMPDIFF(DAY, pedig_dishn_doc_appov_stats.created_at, pedig_dishn_doc_appov_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pedig_dishn_doc_appov_stats.created_at, pedig_dishn_doc_appov_stats.updated_at) + WEEKDAY(pedig_dishn_doc_appov_stats.created_at) + 1) / 7) * 2)) * 8
+            ) <= pedig_dishn_doc_appov_val.unit_sla_time, 
+            'Meet SLA', 
+            'No Meet SLA'
+        )
+    ) AS 'Pending Design Document Approval QC',
 
     -- Pending Design Document Approval DEV
     IF(
-        IF(pedig_dishn_doc_dev_appov_val.sla_type_unit = 'day', 
-           (TIMESTAMPDIFF(DAY, pedig_dishn_doc_dev_appov_stats.created_at, pedig_dishn_doc_dev_appov_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pedig_dishn_doc_dev_appov_stats.created_at, pedig_dishn_doc_dev_appov_stats.updated_at) + WEEKDAY(pedig_dishn_doc_dev_appov_stats.created_at) + 1) / 7) * 2)),
-           (TIMESTAMPDIFF(DAY, pedig_dishn_doc_dev_appov_stats.created_at, pedig_dishn_doc_dev_appov_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pedig_dishn_doc_dev_appov_stats.created_at, pedig_dishn_doc_dev_appov_stats.updated_at) + WEEKDAY(pedig_dishn_doc_dev_appov_stats.created_at) + 1) / 7) * 2)) * 8
-        ) <= pedig_dishn_doc_dev_appov_val.unit_sla_time, 'Meet SLA', 'No Meet SLA'
-    ) AS 'Pending Design Document Approval DEV ',
+        -- GATEKEEPER: Check if Design Status would be 'No Design'
+        req.start_design_time <= 0 OR req.end_design_time <= 0 OR req.start_design_time IS NULL,
+        'N/A',
+        -- CALCULATION: Run the DEV Approval SLA logic only if Design exists
+        IF(
+            IF(pedig_dishn_doc_dev_appov_val.sla_type_unit = 'day', 
+            (TIMESTAMPDIFF(DAY, pedig_dishn_doc_dev_appov_stats.created_at, pedig_dishn_doc_dev_appov_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pedig_dishn_doc_dev_appov_stats.created_at, pedig_dishn_doc_dev_appov_stats.updated_at) + WEEKDAY(pedig_dishn_doc_dev_appov_stats.created_at) + 1) / 7) * 2)),
+            (TIMESTAMPDIFF(DAY, pedig_dishn_doc_dev_appov_stats.created_at, pedig_dishn_doc_dev_appov_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pedig_dishn_doc_dev_appov_stats.created_at, pedig_dishn_doc_dev_appov_stats.updated_at) + WEEKDAY(pedig_dishn_doc_dev_appov_stats.created_at) + 1) / 7) * 2)) * 8
+            ) <= pedig_dishn_doc_dev_appov_val.unit_sla_time, 
+            'Meet SLA', 
+            'No Meet SLA'
+        )
+    ) AS 'Pending Design Document Approval DEV',
 
     -- Technical Test Case Approval
     IF(
-        IF(tech_tst_apprvl_val.sla_type_unit = 'day', 
-           (TIMESTAMPDIFF(DAY, tech_tst_apprvl_stats.created_at, tech_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, tech_tst_apprvl_stats.created_at, tech_tst_apprvl_stats.updated_at) + WEEKDAY(tech_tst_apprvl_stats.created_at) + 1) / 7) * 2)),
-           (TIMESTAMPDIFF(DAY, tech_tst_apprvl_stats.created_at, tech_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, tech_tst_apprvl_stats.created_at, tech_tst_apprvl_stats.updated_at) + WEEKDAY(tech_tst_apprvl_stats.created_at) + 1) / 7) * 2)) * 8
-        ) <= tech_tst_apprvl_val.unit_sla_time, 'Meet SLA', 'No Meet SLA'
+        -- GATEKEEPER: If no status timestamps exist, return N/A
+        tech_tst_apprvl_stats.created_at IS NULL OR tech_tst_apprvl_stats.updated_at IS NULL,
+        'N/A',
+        -- CALCULATION: Run the Technical SLA logic
+        IF(
+            IF(tech_tst_apprvl_val.sla_type_unit = 'day', 
+            (TIMESTAMPDIFF(DAY, tech_tst_apprvl_stats.created_at, tech_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, tech_tst_apprvl_stats.created_at, tech_tst_apprvl_stats.updated_at) + WEEKDAY(tech_tst_apprvl_stats.created_at) + 1) / 7) * 2)),
+            (TIMESTAMPDIFF(DAY, tech_tst_apprvl_stats.created_at, tech_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, tech_tst_apprvl_stats.created_at, tech_tst_apprvl_stats.updated_at) + WEEKDAY(tech_tst_apprvl_stats.created_at) + 1) / 7) * 2)) * 8
+            ) <= tech_tst_apprvl_val.unit_sla_time, 
+            'Meet SLA', 
+            'No Meet SLA'
+        )
     ) AS 'Technical Test Case Approval',
 
     -- Design Test Case Approval
     IF(
-        IF(dsgn_tst_apprvl_val.sla_type_unit = 'day', 
-           (TIMESTAMPDIFF(DAY, dsgn_tst_apprvl_stats.created_at, dsgn_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, dsgn_tst_apprvl_stats.created_at, dsgn_tst_apprvl_stats.updated_at) + WEEKDAY(dsgn_tst_apprvl_stats.created_at) + 1) / 7) * 2)),
-           (TIMESTAMPDIFF(DAY, dsgn_tst_apprvl_stats.created_at, dsgn_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, dsgn_tst_apprvl_stats.created_at, dsgn_tst_apprvl_stats.updated_at) + WEEKDAY(dsgn_tst_apprvl_stats.created_at) + 1) / 7) * 2)) * 8
-        ) <= dsgn_tst_apprvl_val.unit_sla_time, 'Meet SLA', 'No Meet SLA'
+        -- GATEKEEPER: Check if Design Status would be 'No Design'
+        req.start_design_time <= 0 OR req.end_design_time <= 0 OR req.start_design_time IS NULL,
+        'N/A',
+        -- CALCULATION: Run the Design SLA logic only if Design exists
+        IF(
+            IF(dsgn_tst_apprvl_val.sla_type_unit = 'day', 
+            (TIMESTAMPDIFF(DAY, dsgn_tst_apprvl_stats.created_at, dsgn_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, dsgn_tst_apprvl_stats.created_at, dsgn_tst_apprvl_stats.updated_at) + WEEKDAY(dsgn_tst_apprvl_stats.created_at) + 1) / 7) * 2)),
+            (TIMESTAMPDIFF(DAY, dsgn_tst_apprvl_stats.created_at, dsgn_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, dsgn_tst_apprvl_stats.created_at, dsgn_tst_apprvl_stats.updated_at) + WEEKDAY(dsgn_tst_apprvl_stats.created_at) + 1) / 7) * 2)) * 8
+            ) <= dsgn_tst_apprvl_val.unit_sla_time, 
+            'Meet SLA', 
+            'No Meet SLA'
+        )
     ) AS 'Design Test Case Approval',
 
     -- Business Test Case Approval
-    IF(
-        IF(bsns_tst_apprvl_val.sla_type_unit = 'day', 
-           (TIMESTAMPDIFF(DAY, bsns_tst_apprvl_stats.created_at, bsns_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, bsns_tst_apprvl_stats.created_at, bsns_tst_apprvl_stats.updated_at) + WEEKDAY(bsns_tst_apprvl_stats.created_at) + 1) / 7) * 2)),
-           (TIMESTAMPDIFF(DAY, bsns_tst_apprvl_stats.created_at, bsns_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, bsns_tst_apprvl_stats.created_at, bsns_tst_apprvl_stats.updated_at) + WEEKDAY(bsns_tst_apprvl_stats.created_at) + 1) / 7) * 2)) * 8
-        ) <= bsns_tst_apprvl_val.unit_sla_time, 'Meet SLA', 'No Meet SLA'
-    ) AS 'Business Test Case Approval',
+     IF(
+        -- GATEKEEPER: Return N/A if the timestamps are NULL or 0
+        bsns_tst_apprvl_stats.created_at IS NULL OR bsns_tst_apprvl_stats.updated_at IS NULL,
+        'N/A',
+        -- CALCULATION: Run the SLA logic
+        IF(
+            IF(bsns_tst_apprvl_val.sla_type_unit = 'day', 
+                (TIMESTAMPDIFF(DAY, bsns_tst_apprvl_stats.created_at, bsns_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, bsns_tst_apprvl_stats.created_at, bsns_tst_apprvl_stats.updated_at) + WEEKDAY(bsns_tst_apprvl_stats.created_at) + 1) / 7) * 2)),
+                (TIMESTAMPDIFF(DAY, bsns_tst_apprvl_stats.created_at, bsns_tst_apprvl_stats.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, bsns_tst_apprvl_stats.created_at, bsns_tst_apprvl_stats.updated_at) + WEEKDAY(bsns_tst_apprvl_stats.created_at) + 1) / 7) * 2)) * 8
+                ) <= bsns_tst_apprvl_val.unit_sla_time, 
+                'Meet SLA', 
+                'No Meet SLA'
+            )
+        ) AS 'Business Test Case Approval',
 
     -- RollBack
     IF(
@@ -1345,33 +1451,55 @@ IF(req.start_design_time > 0 AND req.end_design_time > 0,
     ) AS 'Health Check',
         -- Design Estimation Comparison
     IF(
+    -- GATEKEEPER: If no design timestamps exist, the comparison is not applicable
+    req.start_design_time <= 0 OR req.end_design_time <= 0 OR req.start_design_time IS NULL,
+    'N/A',
+    -- CALCULATION: Compare Actual vs Planned Duration
+    IF(
         -- Actual Duration (8-hour work day, excluding Fri/Sat)
         ((TIMESTAMPDIFF(DAY, designprogress.created_at, designprogress.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, designprogress.created_at, designprogress.updated_at) + WEEKDAY(designprogress.created_at) + 1) / 7) * 2)) * 8) 
         <= 
         -- Planned Duration (8-hour work day, excluding Fri/Sat)
         ((TIMESTAMPDIFF(DAY, req.start_design_time, req.end_design_time) - (FLOOR((TIMESTAMPDIFF(DAY, req.start_design_time, req.end_design_time) + WEEKDAY(req.start_design_time) + 1) / 7) * 2)) * 8),
-        'Meet', 'Not Meet'
-    ) AS 'Design Estimation Comparison',
+        'Meet', 
+        'Not Meet'
+    )
+) AS 'Design Estimation Comparison',
 
     -- Technical Implementation Comparison
     IF(
-        -- Actual Duration (8-hour work day, excluding Fri/Sat)
-        ((TIMESTAMPDIFF(DAY, tetch_implt_start.created_at, tetch_implt_start.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, tetch_implt_start.created_at, tetch_implt_start.updated_at) + WEEKDAY(tetch_implt_start.created_at) + 1) / 7) * 2)) * 8) 
-        <= 
-        -- Planned Duration (8-hour work day, excluding Fri/Sat)
-        ((TIMESTAMPDIFF(DAY, req.start_develop_time, req.end_develop_time) - (FLOOR((TIMESTAMPDIFF(DAY, req.start_develop_time, req.end_develop_time) + WEEKDAY(req.start_develop_time) + 1) / 7) * 2)) * 8),
-        'Meet', 'Not Meet'
+        -- GATEKEEPER: Check if Development times are missing or invalid
+        req.start_develop_time <= 0 OR req.end_develop_time <= 0 
+        OR req.start_develop_time IS NULL OR req.end_develop_time IS NULL,
+        'N/A',
+        -- CALCULATION: Run the comparison logic only if Development exists
+        IF(
+            -- Actual Duration (8-hour work day, excluding Fri/Sat)
+            ((TIMESTAMPDIFF(DAY, tetch_implt_start.created_at, tetch_implt_start.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, tetch_implt_start.created_at, tetch_implt_start.updated_at) + WEEKDAY(tetch_implt_start.created_at) + 1) / 7) * 2)) * 8) 
+            <= 
+            -- Planned Duration (8-hour work day, excluding Fri/Sat)
+            ((TIMESTAMPDIFF(DAY, req.start_develop_time, req.end_develop_time) - (FLOOR((TIMESTAMPDIFF(DAY, req.start_develop_time, req.end_develop_time) + WEEKDAY(req.start_develop_time) + 1) / 7) * 2)) * 8),
+            'Meet', 
+            'Not Meet'
+        )
     ) AS 'Technical Estimation Comparison',
 
     -- Testing Estimation Comparison
     IF(
-        -- Actual Duration (8-hour work day, excluding Fri/Sat)
-        ((TIMESTAMPDIFF(DAY, pend_test.created_at, pend_test.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pend_test.created_at, pend_test.updated_at) + WEEKDAY(pend_test.created_at) + 1) / 7) * 2)) * 8) 
-        <= 
-        -- Planned Duration (8-hour work day, excluding Fri/Sat)
-        ((TIMESTAMPDIFF(DAY, req.start_test_time, req.end_test_time) - (FLOOR((TIMESTAMPDIFF(DAY, req.start_test_time, req.end_test_time) + WEEKDAY(req.start_test_time) + 1) / 7) * 2)) * 8),
-        'Meet', 'Not Meet'
-    ) AS 'Testing Estimation Comparison'
+            -- GATEKEEPER: If timestamps are missing or invalid, return N/A for both columns
+            req.start_test_time <= 0 OR req.end_test_time <= 0 OR req.start_test_time IS NULL, 
+            'N/A', 
+            -- CALCULATION: Run the duration comparison logic
+            IF(
+                -- Actual Duration (8-hour work day, excluding Fri/Sat)
+                ((TIMESTAMPDIFF(DAY, pend_test.created_at, pend_test.updated_at) - (FLOOR((TIMESTAMPDIFF(DAY, pend_test.created_at, pend_test.updated_at) + WEEKDAY(pend_test.created_at) + 1) / 7) * 2)) * 8) 
+                <= 
+                -- Planned Duration (8-hour work day, excluding Fri/Sat)
+                ((TIMESTAMPDIFF(DAY, req.start_test_time, req.end_test_time) - (FLOOR((TIMESTAMPDIFF(DAY, req.start_test_time, req.end_test_time) + WEEKDAY(req.start_test_time) + 1) / 7) * 2)) * 8),
+                'Meet', 
+                'Not Meet'
+            )
+        ) AS 'Testing Estimation Comparison'
         
          
 
@@ -1448,15 +1576,9 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
-           // dd($depend_on);
+        if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
 
         if ($to_date) {
@@ -1527,8 +1649,7 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
         $status_name = $request->input('status_name');
         $department_id = $request->input('department_id');
 
-        $relevant_with = $request->input('relevant_with');
-        $depend_on = $request->input('depend_on');
+        $ticket_type = $request->input('ticket_type');
         $top_management = $request->input('top_management');
         $on_hold = $request->input('on_hold');
         $on_behalf = $request->input('on_behalf');
@@ -1634,6 +1755,21 @@ SELECT
     categry.`name` AS 'Category',
     stat.status_name AS 'Current Status',
     req.requester_name,
+    'N\A' as 'On Behalf',
+    CASE 
+        WHEN req.hold = '0' THEN 'N/A'
+        WHEN req.hold = '1' THEN 'YES'
+    END AS 'On Hold', 
+    CASE 
+    WHEN req.top_management = '0' THEN 'N/A'
+    WHEN req.top_management = '1' THEN 'YES'
+    END AS 'Top Management',
+    CASE 
+        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+        ELSE 'N/A' 
+    END AS 'Ticket Type',
     apps.`name` AS 'Targeted System',
     technical_team.title AS 'Technical Team',
     IF(req.start_design_time > 0 AND req.end_design_time > 0, 'Design', 'No Design') AS 'Design Status',
@@ -1717,36 +1853,49 @@ SELECT
     (SELECT COUNT(*) 
  FROM change_request_statuses 
  WHERE cr_id = req.id AND new_status_id = 31) AS 'Count-Required Info',
-IF(
-        COALESCE(
-            (SELECT SUM(
-                (TIMESTAMPDIFF(DAY, created_at, updated_at) - 
-                (FLOOR((TIMESTAMPDIFF(DAY, created_at, updated_at) + WEEKDAY(created_at) + 1) / 7) * 2)) * 8 
-                + (TIMESTAMPDIFF(HOUR, created_at, updated_at) % 24) -- Captures partial day hours
+       IF(
+            -- Condition that determines 'Count-Required Info'
+            (SELECT COUNT(*) FROM change_request_statuses WHERE cr_id = req.id AND new_status_id = 31) = 0, 
+            'N/A', 
+            -- Your existing Logic
+            IF(
+                COALESCE(
+                    (SELECT SUM(
+                        (TIMESTAMPDIFF(DAY, created_at, updated_at) - 
+                        (FLOOR((TIMESTAMPDIFF(DAY, created_at, updated_at) + WEEKDAY(created_at) + 1) / 7) * 2)) * 8 
+                        + (TIMESTAMPDIFF(HOUR, created_at, updated_at) % 24)
+                    )
+                    FROM change_request_statuses 
+                    WHERE cr_id = req.id AND new_status_id = 31), 
+                0) <= 2, 'Meet', 'Not Meet'
             )
-            FROM change_request_statuses 
-            WHERE cr_id = req.id AND new_status_id = 31), 
-        0) <= 2, 'Meet', 'Not Meet'
-    ) AS 'Time -Required Info',
-     (SELECT COUNT(*) 
- FROM change_request_statuses 
- WHERE cr_id = req.id AND new_status_id = 7) AS 'Count-Design Rework',
+        ) AS 'Time -Required Info',
+
+            (SELECT COUNT(*) 
+        FROM change_request_statuses 
+        WHERE cr_id = req.id AND new_status_id = 7) AS 'Count-Design Rework',
  
- IF(
-        -- ACTUAL REWORK DURATION (Status 7)
-        COALESCE((
-            SELECT SUM((TIMESTAMPDIFF(DAY, created_at, updated_at) - 
-                (FLOOR((TIMESTAMPDIFF(DAY, created_at, updated_at) + WEEKDAY(created_at) + 1) / 7) * 2)) * 8)
-            FROM change_request_statuses 
-            WHERE cr_id = req.id AND new_status_id = 7
-        ), 0) 
-        <= 
-        -- 25% OF PLANNED DURATION
-        (((TIMESTAMPDIFF(DAY, req.start_design_time, req.end_design_time) - 
-            (FLOOR((TIMESTAMPDIFF(DAY, req.start_design_time, req.end_design_time) + WEEKDAY(req.start_design_time) + 1) / 7) * 2)) * 8) * 0.25),
-        
-        'Meet', 
-        'Not Meet'
+    IF(
+        -- GATEKEEPER: Check if design times exist
+        req.start_design_time <= 0 OR req.end_design_time <= 0 OR req.start_design_time IS NULL, 
+        'N/A', 
+        -- CALCULATION: Run the rework logic if times exist
+        IF(
+            -- ACTUAL REWORK DURATION (Status 7)
+            COALESCE((
+                SELECT SUM((TIMESTAMPDIFF(DAY, created_at, updated_at) - 
+                    (FLOOR((TIMESTAMPDIFF(DAY, created_at, updated_at) + WEEKDAY(created_at) + 1) / 7) * 2)) * 8)
+                FROM change_request_statuses 
+                WHERE cr_id = req.id AND new_status_id = 7
+            ), 0) 
+            <= 
+            -- 25% OF PLANNED DURATION
+            (((TIMESTAMPDIFF(DAY, req.start_design_time, req.end_design_time) - 
+                (FLOOR((TIMESTAMPDIFF(DAY, req.start_design_time, req.end_design_time) + WEEKDAY(req.start_design_time) + 1) / 7) * 2)) * 8) * 0.25),
+            
+            'Meet', 
+            'Not Meet'
+        )
     ) AS 'Rework Time-Design Rework',
     
    -- Rework Count
@@ -1908,15 +2057,9 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
             $bindings[] = $on_hold;
         }
 
-        if ($depend_on) {
-           // dd($depend_on);
+        if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
-            $bindings[] = $depend_on;
-        }
-
-        if ($relevant_with) {
-            $query .= " AND rlvvnt.custom_field_value = ?";
-            $bindings[] = $relevant_with;
+            $bindings[] = $ticket_type;
         }
         
 
