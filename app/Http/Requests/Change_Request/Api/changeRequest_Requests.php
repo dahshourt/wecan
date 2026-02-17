@@ -6,6 +6,7 @@ use App\Http\Repository\ChangeRequest\ChangeRequestRepository;
 use App\Http\Repository\CustomField\CustomFieldGroupTypeRepository;
 use App\Rules\CompareOldValue;
 use App\Rules\DivisionManagerExists;
+use App\Rules\MdsApproversExists;
 use App\Rules\ValidateStatus;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -78,6 +79,8 @@ class changeRequest_Requests extends FormRequest
             if ($field->validation_type_id == 1 && $field->enable == 1) {
                 if ($field->CustomField->name == 'division_manager') {
                     $rules[$field->CustomField->name] = ['required', 'email', new DivisionManagerExists()];
+                } elseif ($field->CustomField->name == 'mds_approvers') {
+                    $rules[$field->CustomField->name] = ['sometimes', 'string', new MdsApproversExists()];
                 } elseif ($field->CustomField->name == 'creator_mobile_number') {
                     $rules[$field->CustomField->name] = 'required|regex:/^01[0-9]{9}$/';
                 } else {

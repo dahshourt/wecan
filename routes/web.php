@@ -384,4 +384,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/report/crs-crossed-sla/export', [ReportController::class, 'exportCrsCrossedSla'])->name('report.cross_sla.export');
     Route::get('/report/rejected-crs/export', [ReportController::class, 'exportRejectedCrs'])->name('report.rejected_crs.export');
 
+    // Validation Routes
+    Route::post('/validate/mds_approvers', [App\Http\Controllers\Validation\MdsApproversValidationController::class, 'validateEmail'])->name('validate.mds_approvers');
+
 });
