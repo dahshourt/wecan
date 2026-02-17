@@ -49,7 +49,7 @@
                                             <a href="javascript:;" class="menu-link menu-toggle">
                                                 <span class="menu-text">KPIs</span>
                                                 <span class="menu-desc"></span>
-                                                <i class="la la-angle-down ml-2"></i>
+                                                <i class="la text-white ml-2 dropdown-toggle"></i>
                                             </a>
                                             <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                                 <ul class="menu-subnav">
@@ -188,7 +188,7 @@
                                         <a href="javascript:;" class="menu-link menu-toggle">
                                             <span class="menu-text">Settings</span>
                                             <span class="menu-desc"></span>
-                                            <i class="la la-angle-down ml-2"></i>
+                                            <i class="la text-white ml-2 dropdown-toggle"></i>
                                         </a>
                                         <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                             <ul class="menu-subnav">
@@ -839,7 +839,7 @@
                                 <a href="javascript:;" class="menu-link menu-toggle">
                                     <span class="menu-text">Admin</span>
                                     <span class="menu-desc"></span>
-                                    <i class="la la-angle-down ml-2"></i>
+                                    <i class="la text-white ml-2 dropdown-toggle"></i>
                                 </a>
                                 <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                     <ul class="menu-subnav">
@@ -922,7 +922,7 @@
                                                                     <!--end::Svg Icon-->
                                                                 </span>
                                                                 <span class="menu-text">Top Management Admin</span>
-                                                                <i class="la la-angle-down ml-2"></i>
+                                                                <i class="la text-white ml-2 dropdown-toggle"></i>
                                                             </a>
                                                             <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                                                 <ul class="menu-subnav">
@@ -1067,7 +1067,7 @@
                                     <a href="javascript:;" class="menu-link menu-toggle">
                                         <span class="menu-text">Change Request</span>
                                         <span class="menu-desc"></span>
-                                        <i class="la la-angle-down ml-2"></i>
+                                        <i class="la text-white ml-2 dropdown-toggle"></i>
                                     </a>
                                     <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                         <ul class="menu-subnav">
@@ -1330,7 +1330,7 @@
                                     aria-haspopup="true">
                                     <a href="javascript:;" class="menu-link menu-toggle">
                                         <span class="menu-text">Search & Reporting</span>
-                                        <i class="la la-angle-down ml-2"></i>
+                                        <i class="la text-white ml-2 dropdown-toggle"></i>
                                     </a>
                                     <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                         <ul class="menu-subnav">
@@ -1421,7 +1421,7 @@
                                     aria-haspopup="true">
                                     <a href="javascript:;" class="menu-link menu-toggle">
                                         <span class="menu-text">Releases</span>
-                                        <i class="la la-angle-down ml-2"></i>
+                                        <i class="la text-white ml-2 dropdown-toggle"></i>
                                     </a>
                                     <div class="menu-submenu menu-submenu-classic menu-submenu-left">
                                         <ul class="menu-subnav">

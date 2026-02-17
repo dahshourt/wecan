@@ -17,6 +17,21 @@ class RejectedCRsExport implements FromCollection, WithHeadings
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'CR Type',
+        'N\A' as 'On Behalf',
+        CASE 
+            WHEN req.hold = '0' THEN 'N/A'
+            WHEN req.hold = '1' THEN 'YES'
+        END AS 'On Hold',
+        CASE 
+            WHEN req.top_management = '0' THEN 'N/A'
+            WHEN req.top_management = '1' THEN 'YES'
+        END AS 'Top Management',
+        CASE 
+            WHEN dpnd_on.custom_field_value = '1' THEN 'Normal'
+            WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On'
+            WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant'
+            ELSE 'N/A' 
+        END AS 'Ticket Type',
    --     chang_stat_reject.created_at 'Review and estimation start date' ,
     --    chang_stat_reject.updated_at 'Review and estimation start date' ,
      --   chang_stat_analysis.created_at 'Analysis start date',
@@ -67,6 +82,7 @@ class RejectedCRsExport implements FromCollection, WithHeadings
     FROM  change_request AS req
     LEFT JOIN applications AS apps ON apps.id = req.application_id
     LEFT JOIN workflow_type AS flow ON flow.id = req.workflow_type_id
+    LEFT JOIN change_request_custom_fields AS dpnd_on ON dpnd_on.cr_id = req.id AND dpnd_on.custom_field_name = 'cr_type'
     LEFT JOIN change_request_statuses AS curr_status 
            ON curr_status.cr_id = req.id 
     LEFT JOIN statuses AS stat ON stat.id = curr_status.old_status_id 
@@ -122,6 +138,10 @@ class RejectedCRsExport implements FromCollection, WithHeadings
             'Applications',
             'Title',
             'Workflow Type',
+            'On Behalf',
+            'On Hold',
+            'Top Management',
+            'Ticket Type',
             'Business Validation Status Start Date',
             'Business Validation Status End Date',
             'Pending CAB status Start Date',

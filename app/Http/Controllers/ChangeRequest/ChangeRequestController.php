@@ -83,7 +83,7 @@ class ChangeRequestController extends Controller
             $this->authorize('List change requests');
 
             $active_work_flows = app(Workflow_type_repository::class)->getWorkflowsForListCRs();
-            $active_workflows_type_ids = $active_work_flows->pluck('id');
+            $active_workflows_type_ids = $active_work_flows->pluck('id')->toArray();
 
             $user_groups = auth()->user()->groups()->select(['groups.id', 'groups.title'])->get();
             $user_groups_ids = $user_groups->pluck('id');
@@ -98,7 +98,7 @@ class ChangeRequestController extends Controller
                     $key = 'all';
                 }
 
-                $crs_by_user_groups_by_workflow[$key] = $this->changerequest->getAllForLisCRs($active_workflows_type_ids->toArray(), $user_group_id);
+                $crs_by_user_groups_by_workflow[$key] = $this->changerequest->getAllForLisCRs($active_workflows_type_ids, $user_group_id);
             }
 
 

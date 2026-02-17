@@ -75,7 +75,7 @@
                             </div>
                             <div class="card-footer">
                                 <button type="submit" class="btn btn-primary mr-2">Update Status</button>
-                                <a href="{{ url('/') }}" class="btn btn-secondary">Cancel</a>
+                                <a href="{{ url(path: '/') }}" class="btn btn-danger">Cancel</a>
                             </div>
                         </form>
                         <!--end::Form-->

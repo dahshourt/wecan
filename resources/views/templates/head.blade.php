@@ -36,8 +36,9 @@ License: You must have a valid license purchased only from themeforest(the above
 		type="text/css" />
 	<link href="{{asset('public/new_theme/assets/css/style.bundle.css')}}" rel="stylesheet" type="text/css" />
 	<link href="{{asset('public/new_theme/sweetalert2.min.css')}}" rel="stylesheet" type="text/css" />
-	<link src="{{asset('public/new_theme/assets/css/charts.css')}}" rel="stylesheet" type="text/css">
-	</link>
+	<link src="{{asset('public/new_theme/assets/css/charts.css')}}" rel="stylesheet" type="text/css" />
+
+	<link rel="stylesheet" href="{{asset('public/css/fonts/all.min.css')}}" />
 
 	<!--end::Global Theme Styles-->
 	<!--begin::Layout Themes(used by all pages)-->
@@ -55,9 +56,11 @@ License: You must have a valid license purchased only from themeforest(the above
 
 	@stack('css')
 
+
+
 </head>
 <!--end::Head-->
 <!--begin::Body-->
 
-<body id="kt_body" style="background-image: url({{asset('public/new_theme/assets/media/bg/bg-6.jpg')}})"
+<body id="kt_body" style="background-image: url({{asset('public/Rectangle1.png')}})"
 	class="quick-panel-right demo-panel-right offcanvas-right header-fixed subheader-enabled page-loading">
