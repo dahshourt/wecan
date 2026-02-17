@@ -659,3 +659,16 @@ input:checked+.modern-toggle-slider:before {
 .header-menu-wrapper {
     z-index: 99999 !important;
 }
+
+.btn-primary {
+    background-color: #4a2375 !important;
+    border-color: #4a2375 !important;
+}
+
+#advancedSearchToggle {
+    background-color: #4a2375 !important;
+}
+
+#advancedSearchToggleIcon {
+    color: #fff;
+}
