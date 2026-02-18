@@ -85,25 +85,9 @@ class ChangeRequestController extends Controller
             $active_work_flows = app(Workflow_type_repository::class)->getWorkflowsForListCRs();
             $active_workflows_type_ids = $active_work_flows->pluck('id');
 
-            $user_groups = auth()->user()->groups()->select(['groups.id', 'groups.title'])->get();
-            $user_groups_ids = $user_groups->pluck('id');
-            $all_user_group_ids = $user_groups_ids->prepend($user_groups_ids->toArray());
+            $crs_by_work_flow_types = $this->changerequest->getAllForLisCRs($active_workflows_type_ids->toArray());
 
-
-            $crs_by_user_groups_by_workflow = [];
-            foreach ($all_user_group_ids as $user_group_id) {
-                $key = $user_group_id;
-
-                if (is_array($user_group_id)) {
-                    $key = 'all';
-                }
-
-                $crs_by_user_groups_by_workflow[$key] = $this->changerequest->getAllForLisCRs($active_workflows_type_ids->toArray(), $user_group_id);
-            }
-
-
-
-            return view("{$this->view}.index", compact('crs_by_user_groups_by_workflow', 'active_work_flows', 'user_groups'));
+            return view("{$this->view}.index", compact('crs_by_work_flow_types', 'active_work_flows'));
         } catch (AuthorizationException $e) {
             Log::warning('Unauthorized access attempt to change requests list', [
                 'user_id' => auth()->id(),

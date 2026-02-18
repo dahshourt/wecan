@@ -70,23 +70,11 @@ class ChangeRequestSearchService
         return $changeRequests;
     }
 
-    public function getAllByWorkFlow(int $workflow_type_id, $group = null)
+    public function getAllByWorkFlow(int $workflow_type_id, $group = null): LengthAwarePaginator
     {
-        if (is_array($group)) {
-            $group = $this->resolveGroup($group);
-            $groupData = Group::with('group_applications')->whereIn('id', $group)->get();
-            $groupApplications = $groupData->pluck('group_applications.application_id')->filter()->toArray();
-
-            $group_id = $group;
-
-        } else {
-            $group = $this->resolveGroup($group);
-            $groupData = Group::find($group);
-            $groupApplications = $groupData->group_applications->pluck('application_id')->toArray();
-
-            $group_id = [$group];
-        }
-
+        $group = $this->resolveGroup($group);
+        $groupData = Group::find($group);
+        $groupApplications = $groupData->group_applications->pluck('application_id')->toArray();
         $viewStatuses = $this->getViewStatuses($group);
 
         $work_flow_relations = match ($workflow_type_id) {
@@ -115,11 +103,11 @@ class ChangeRequestSearchService
                 $q->whereIn('change_request_custom_fields.custom_field_name', ['application_id', 'sub_application_id'])->whereIn('change_request_custom_fields.custom_field_value', $groupApplications);
             }); */
 
-            $changeRequests = $changeRequests->where(function ($query) use ($group_id) {
+            $changeRequests = $changeRequests->where(function ($query) use ($groupData) {
                 // Case 1: Where unit_id matches in custom fields
-                $query->whereHas('change_request_custom_fields', function ($q) use ($group_id) {
+                $query->whereHas('change_request_custom_fields', function ($q) use ($groupData) {
                     $q->where('custom_field_name', 'tech_group_id')
-                        ->whereIn('custom_field_value', $group_id);
+                        ->where('custom_field_value', $groupData->id);
                 })
                     // Case 2: OR unit_id does NOT exist in custom fields
                     ->orWhereDoesntHave('change_request_custom_fields', function ($q) {
@@ -128,22 +116,17 @@ class ChangeRequestSearchService
             });
         }
 
-        // Determine page name for pagination based on workflow and group key
-        // If group is an array (the "all" groups case), use "all" as the key
-        $groupKeyForPage = is_array($group) ? 'all' : (string) ($group ?? 'all');
-        $pageName = "type_{$groupKeyForPage}_{$workflow_type_id}";
-
-        return $changeRequests->whereHas('RequestStatuses', function ($query) use ($group_id, $viewStatuses) {
-            $query->active()->where(function ($qq) use ($group_id) {
-                $qq->whereIn('group_id', $group_id)->orWhereNull('group_id');
+        return $changeRequests->whereHas('RequestStatuses', function ($query) use ($group, $viewStatuses) {
+            $query->active()->where(function ($qq) use ($group) {
+                $qq->where('group_id', $group)->orWhereNull('group_id');
             })
                 ->whereIn('new_status_id', $viewStatuses)
-                ->whereHas('status.group_statuses', function ($query) use ($group_id) {
-                    $query->whereIn('group_id', $group_id)
+                ->whereHas('status.group_statuses', function ($query) use ($group) {
+                    $query->where('group_id', $group)
                         ->where('type', 2);
                 });
         })->orderBy('id', 'DESC')
-            ->paginate(20, ['*'], $pageName);
+            ->paginate(20, pageName: "type_$workflow_type_id");
     }
 
     public function getAllForLisCRs(array $workflow_type_ids, $group = null): array
