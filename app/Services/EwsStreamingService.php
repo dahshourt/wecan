@@ -32,6 +32,9 @@ class EwsStreamingService
 
         $this->client = new Client($host, $username, $password, Client::VERSION_2016);
         // $this->client->setCurlOptions([CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => false]);
+        if (config('services.ews.ssl_verify') === false) {
+            $this->client->setCurlOptions([CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => false]);
+        }
         $this->mailReader = new EwsMailReader();
     }
 

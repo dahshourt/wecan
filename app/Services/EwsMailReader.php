@@ -18,6 +18,7 @@ use jamesiarmes\PhpEws\Type\DistinguishedFolderIdType;
 use jamesiarmes\PhpEws\Type\IndexedPageViewType;
 use jamesiarmes\PhpEws\Type\ItemIdType;
 use jamesiarmes\PhpEws\Type\ItemResponseShapeType;
+use App\Services\StatusConfigService;
 use Log;
 use Throwable;
 
@@ -33,6 +34,9 @@ class EwsMailReader
 
         $this->client = new Client($host, $username, $password, Client::VERSION_2016);
         // $this->client->setCurlOptions([CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => false]);
+        /*if (config('services.ews.ssl_verify') === false) {
+            $this->client->setCurlOptions([CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => false]);
+        }*/
     }
 
     public function readInbox($limit)
@@ -55,7 +59,7 @@ class EwsMailReader
         $view = new IndexedPageViewType();
         $view->BasePoint = 'Beginning';
         $view->Offset = 0;
-        $view->MaxEntriesReturned = 20;
+        $view->MaxEntriesReturned = $limit;
         $findRequest->IndexedPageItemView = $view;
 
         $findResponse = $this->client->FindItem($findRequest);
@@ -112,7 +116,7 @@ class EwsMailReader
 
     }
 
-    public function handleApprovals(int $limit = 1): void
+    public function handleApprovals(int $limit = 20): void
     {
         $messages = $this->readInbox($limit);
 
@@ -175,23 +179,28 @@ class EwsMailReader
     protected function determineAction(string $text): ?string
     {
         $text = strtolower($text);
-        $posApproved = strrpos($text, 'approved');
-        $posRejected = strrpos($text, 'rejected');
+        preg_match_all('/\b(approve|approved|reject|rejected)\b/i', $text, $matches, PREG_OFFSET_CAPTURE);
 
-        if ($posApproved === false && $posRejected === false) {
+        if (empty($matches[0])) {
             return null;
         }
 
-        if ($posApproved > $posRejected) {
+        /*$lastMatch = end($matches[0]);
+        $word = $lastMatch[0]; */
+
+        // i will use the first match instead of last match because we may enable the approval by reply.
+        $firstMatch = $matches[0][0][0];
+        if (in_array($firstMatch, ['approve', 'approved'])) {
             return 'approved';
         }
 
-        if ($posRejected !== false) {
+        if (in_array($firstMatch, ['reject', 'rejected'])) {
             return 'rejected';
         }
 
         return null;
     }
+
 
     // Execute repository logic to update CR status.
 
@@ -207,20 +216,30 @@ class EwsMailReader
         // Ensure the sender is the assigned division manager
         if (strtolower($fromEmail) !== strtolower($cr->division_manager)) {
             Log::warning("EWS Mail Reader: Unauthorized {$action} attempt for CR #{$crId} from {$fromEmail}");
-
             return;
         }
 
         $currentStatus = \App\Models\Change_request_statuse::where('cr_id', $crId)
             ->where('active', '1')
             ->value('new_status_id');
-        if ($currentStatus != '22') {
-            Log::warning("EWS Mail Reader: CR #{$crId} is not in pending cap status whilst processing {$action} from {$fromEmail}");
+        $businessApprovalId = StatusConfigService::getStatusId('business_approval');
+        $divisionManagerApprovalId = StatusConfigService::getStatusId('division_manager_approval');
 
+        if (!in_array($currentStatus, [$businessApprovalId, $divisionManagerApprovalId])) {
+            Log::warning("EWS Mail Reader: CR #{$crId} is not in business approval or division manager approval status whilst processing {$action} from {$fromEmail}");
             return;
         }
 
-        if ($cr->workflow_type_id == 3) {
+
+        if ($action === 'approved') {
+            $workflow_type_id = $cr->getSetStatus()->where('workflow_type', '0')->pluck('id')->first();
+        } elseif ($action === 'rejected') {
+            $workflow_type_id = $cr->getSetStatus()->where('workflow_type', '1')->pluck('id')->first();
+        } else {
+            Log::warning("EWS Mail Reader: Unsupported action {$action} for CR #{$crId}");
+            return;
+        }
+        /*if ($cr->workflow_type_id == 3) {
             $newStatus = $action === 'approved' ? 36 : 35;
         } elseif ($cr->workflow_type_id == 5) {
             $newStatus = $action === 'approved' ? 188 : 184;
@@ -228,15 +247,17 @@ class EwsMailReader
             Log::warning("EWS Mail Reader: Unsupported workflow_type_id {$cr->workflow_type_id} for CR #{$crId}");
 
             return;
-        }
+        }*/
 
         $repo = new \App\Http\Repository\ChangeRequest\ChangeRequestRepository();
+        $user = \App\Models\User::where('email', $fromEmail)->first();
+        $userId = $user ? $user->id : null;
 
         $req = new \Illuminate\Http\Request([
             'old_status_id' => $currentStatus,
-            'new_status_id' => $newStatus,
-            // propagate sender email for repo user resolution logic
+            'new_status_id' => $workflow_type_id,
             'assign_to' => null,
+            'user_id' => $userId,
         ]);
 
         try {
