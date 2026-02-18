@@ -403,6 +403,7 @@
 
                     // 3. Relevant CRs Not Ready Warning
                     const initialStatus = $statusSelect.data('initial-status');
+
                     if (
                         selectedStatus != CONFIG.pendingProductionId &&
                         initialStatus == CONFIG.pendingProductionId &&
@@ -418,16 +419,15 @@
                             cancelButtonText: 'Cancel'
                         }).then(result => {
                             if (result.isConfirmed) {
-                                // Submit form directly
+                                // Temporarily bypass checks or just submit form directly from DOM element to skip jQuery handler if needed, 
+                                // but here we can just set a flag or unbind. 
+                                // Simplest is to remove the handler and submit, or just submit the native form.
                                 $form[0].submit();
                             }
                         });
                         return false;
                     }
                 });
-
-                // Initialize MDS Approvers Validation
-                initMdsApproversValidation();
             }
 
             // =========================================================================
@@ -494,147 +494,6 @@
                 $input.next('.validation-error').remove();
             }
 
-            // =========================================================================
-            // MDS Approvers Validation
-            // =========================================================================
-            
-            function initMdsApproversValidation() {
-                const mdsApproversInput = $('input[name="mds_approvers"], select[name="mds_approvers"]');
-                const submitButton = $('#submit_button');
-                
-                console.log('MDS Approvers Validation Debug:');
-                console.log('- Looking for input[name="mds_approvers"]');
-                console.log('- Found elements:', mdsApproversInput.length);
-                console.log('- Submit button found:', submitButton.length);
-                
-                if (mdsApproversInput.length) {
-                    console.log('- MDS Approvers input found, initializing validation');
-                    // Use existing feedback element from template
-                    const feedback = $('#mds_approvers_feedback');
-                    console.log('- Feedback element found:', feedback.length);
-                    
-                    let currentRequest = null;
-                    
-                    // Initial check on page load
-                    checkMdsApprovers();
-                    
-                    // Check on input change with debouncing
-                    let emailTimeout;
-                    mdsApproversInput.on('input change', function () {
-                        clearTimeout(emailTimeout);
-                        emailTimeout = setTimeout(function() {
-                            checkMdsApprovers();
-                        }, 500);
-                    });
-                    
-                    // Prevent form submission if validation is in progress
-                    mdsApproversInput.closest('form').on('submit', function(event) {
-                        const username = mdsApproversInput.val().trim();
-                        // Only prevent submission if username has validation errors
-                        if (username && mdsApproversInput.hasClass('is-invalid')) {
-                            event.preventDefault();
-                            return false;
-                        }
-                        // Allow submission if field is empty or valid
-                    });
-                    
-                    function checkMdsApprovers() {
-                        const username = mdsApproversInput.val().trim();
-                        
-                        if (!username) {
-                            // If username is empty, enable submit button
-                            resetMdsState();
-                            submitButton.prop("disabled", false); // Enable submit when empty
-                            return;
-                        }
-                        
-                        // Basic username validation (alphanumeric, underscore, hyphen, dot)
-                        const usernameRegex = /^[a-zA-Z0-9._-]+$/;
-                        if (!usernameRegex.test(username)) {
-                            resetMdsState();
-                            feedback.text('Please enter a valid username (letters, numbers, dot, underscore, hyphen only)');
-                            feedback.addClass('text-danger');
-                            mdsApproversInput.addClass('is-invalid');
-                            return;
-                        }
-                        
-                        // Start validation process
-                        startMdsValidation();
-                        
-                        // Make AJAX request
-                        currentRequest = $.ajax({
-                            headers: {
-                                'X-CSRF-TOKEN': "{{ csrf_token() }}"
-                            },
-                            url: '{{ route("validate.mds_approvers") }}',
-                            data: {email: username},
-                            dataType: 'JSON',
-                            type: 'POST',
-                            success: function (data) {
-                                currentRequest = null;
-                                endMdsValidation();
-                                
-                                if (data.valid) {
-                                    // Username is valid
-                                    submitButton.prop("disabled", false);
-                                    mdsApproversInput.removeClass('is-invalid');
-                                    mdsApproversInput.addClass('is-valid');
-                                    feedback.text(data.message);
-                                    feedback.removeClass('text-danger');
-                                    feedback.addClass('text-success');
-                                } else {
-                                    // Username is invalid
-                                    submitButton.prop("disabled", true);
-                                    mdsApproversInput.removeClass('is-valid');
-                                    mdsApproversInput.addClass('is-invalid');
-                                    feedback.text(data.message);
-                                    feedback.removeClass('text-success');
-                                    feedback.addClass('text-danger');
-                                }
-                            },
-                            error: function(xhr) {
-                                // Only handle error if request wasn't aborted
-                                if (xhr.statusText !== 'abort') {
-                                    currentRequest = null;
-                                    endMdsValidation();
-                                    
-                                    submitButton.prop("disabled", true);
-                                    mdsApproversInput.removeClass('is-valid');
-                                    mdsApproversInput.addClass('is-invalid');
-                                    feedback.text('Error checking username. Please try again.');
-                                    feedback.removeClass('text-success');
-                                    feedback.addClass('text-danger');
-                                }
-                            }
-                        });
-                    }
-                    
-                    function startMdsValidation() {
-                        submitButton.prop("disabled", true);
-                    }
-                    
-                    function endMdsValidation() {
-                        // Only enable if no validation errors
-                        if (!mdsApproversInput.hasClass('is-invalid')) {
-                            submitButton.prop("disabled", false);
-                        }
-                    }
-                    
-                    function resetMdsState() {
-                        const username = mdsApproversInput.val().trim();
-                        // Only disable submit if username is not empty and has validation errors
-                        if (username) {
-                            submitButton.prop("disabled", true);
-                        } else {
-                            submitButton.prop("disabled", false); // Enable when empty
-                        }
-                        mdsApproversInput.removeClass('is-valid is-invalid');
-                        feedback.text('');
-                        feedback.removeClass('text-success text-danger');
-                    }
-                }
-            }
-
             // Rejection Reason script (Blade Conditional)
             @if(isset($cr))
                 $(DOM.statusSelect).on('change', function () {
@@ -654,17 +513,6 @@
             @endif
 
                     })(jQuery);
-    </script>
-
-    <!-- Simple form submission fix -->
-    <script>
-    $(document).ready(function() {
-        // Ensure form submission works by removing any conflicting handlers
-        $('form').off('submit').on('submit', function(e) {
-            // Let the form submit normally
-            return true;
-        });
-    });
     </script>
 
     @include('change_request.partials.on_behalf_script')

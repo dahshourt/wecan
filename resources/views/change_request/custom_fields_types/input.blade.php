@@ -15,6 +15,8 @@
             $fieldType = 'number';
         } elseif (in_array($fieldName, ['requester_email', 'division_manager'])) {
             $fieldType = 'email';
+        } elseif ($fieldName === 'mds_approvers') {
+            $fieldType = 'text';
         } else {
             $fieldType = 'text';
         }
@@ -52,6 +54,22 @@
                     <small class="text-danger">{{ $message }}</small>
                 @enderror
                 <small id="email_feedback" class="form-text text-danger"></small>
+
+            {{-- Special Case: MDS Approvers --}}
+            @elseif ($fieldName === 'mds_approvers')
+                <input
+                    type="text"
+                    id="mds_approvers"
+                    name="{{ $fieldName }}"
+                    class="form-control form-control-lg @error($fieldName) is-invalid @enderror"
+                    value="{{ $fieldValue }}"
+                    placeholder="Enter username"
+                    @if ($isRequired) required @endif
+                />
+                @error($fieldName)
+                    <small class="text-danger">{{ $message }}</small>
+                @enderror
+                <small id="mds_approvers_feedback" class="form-text text-danger"></small>
 
             {{-- Requester name/email special cases --}}
             @elseif(in_array($fieldName, ['requester_name', 'requester_email']))

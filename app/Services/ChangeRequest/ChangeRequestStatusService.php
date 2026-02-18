@@ -585,6 +585,45 @@ class ChangeRequestStatusService
 
                 return true; // ⭐ EXIT EARLY - don't run normal workflow
             }
+             try {
+                $iotService = new \App\Services\ChangeRequest\SpecialFlows\IotTcsFlowService();
+
+                if ($iotService->isIotTcsTransition($changeRequestId, $statusData)) {
+                    Log::info('IOT TCs parallel workflow transition detected - delegating to IotTcsFlowService', [
+                        'cr_id'         => $changeRequestId,
+                        'old_status_id' => $statusData['old_status_id'],
+                        'new_status_id' => $statusData['new_status_id'],
+                    ]);
+
+                    $changeRequest = $this->getChangeRequest($changeRequestId);
+
+                    // Build context for group/user resolution
+                    $context = [
+                        'user_id'          => Auth::id() ?? null,
+                        'application_id'   => $changeRequest->application_id ?? null,
+                    ];
+
+                    $activeFlag = $iotService->handleIotTcsTransition($changeRequestId, $statusData, $context);
+                    $this->active_flag = $activeFlag;
+
+                    DB::commit();
+
+                    Log::info('IOT TCs transition completed successfully', [
+                        'cr_id'       => $changeRequestId,
+                        'active_flag' => $activeFlag,
+                    ]);
+
+                    event(new ChangeRequestStatusUpdated($changeRequest, $statusData, $request, $this->active_flag));
+
+                    return true; // ⭐ EXIT EARLY – normal workflow must NOT run
+                }
+            } catch (\Throwable $e) {
+                Log::error('Error in IotTcsFlowService check', [
+                    'cr_id' => $changeRequestId,
+                    'error' => $e->getMessage(),
+                ]);
+                // Fall through to normal workflow on service error
+            }
 
             // ════════════════════════════════════════════════════════════════
             // END OF REQUEST UPDATE ATPs FIX

@@ -47,7 +47,7 @@
                             {{ method_field('PATCH') }}
 
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <h3 class="card-title m-0 text-info">{{ $form_title.' #'.$cr->cr_no.' | '.$cr?->workflowType?->name?:' ' }}</h3>
+                                <h3 class="card-title m-0 text-info">{{ $form_title.' #'.$cr->cr_no.' | '.($cr?->workflowType?->name ?: ' ') }}</h3>
                                 <div class="d-flex">
                                     
                                     @can('Show CR Logs')
@@ -90,9 +90,7 @@
                             <div class="card-footer d-flex justify-content-end">
                                 @if(count($cr->set_status) > 0)
                                     @if($cr->getCurrentStatus()?->status?->id == 68 && $workflow_type_id == 9 && count($reminder_promo_tech_teams) > 0)
-                                    {{--<button type="button" id="submit_button" class="btn btn-success mr-2" id="show_error_message">
-                                            Submit
-                                    </button>--}}
+                                   
                                     <button type="submit" id="submit_button" class="btn btn-success">
                                             Submit
                                         </button>
@@ -130,6 +128,6 @@
 <!--end::Content-->
 
 
-@endsection
-
 @include('change_request.partials.scripts')
+
+@endsection
