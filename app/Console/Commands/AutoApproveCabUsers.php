@@ -16,7 +16,6 @@ class AutoApproveCabUsers extends Command
 
     protected $description = 'Automatically approve cab_cr_users after 2 days if not approved';
 
-    
     public function handle()
     {
         $thresholdDate = $this->getThresholdDate(2);
@@ -26,6 +25,7 @@ class AutoApproveCabUsers extends Command
             ->whereHas('cabCr', function ($query) {
                 $query->where('status', '0');
             })
+            ->with('cabCr')
             ->where('created_at', '<=', $thresholdDate)
             ->get();
 
@@ -46,6 +46,7 @@ class AutoApproveCabUsers extends Command
                 'new_status_id' => '160',
                 'cab_cr_flag' => '1',
                 'user_id' => $user->user_id,
+                'cron_status_log_message' => "Change Request Approved by System due to CAB member no response. That is considered as a passive approval and the status changed to ':status_name'",
             ]);
 
             try {
