@@ -23,6 +23,7 @@ use App\Events\ChangeRequestUserAssignment;
 use App\Models\ChangeRequest;
 use App\Http\Repository\KPIs\KPIRepository;
 use App\Services\ChangeRequest\CrDependencyService;
+use Illuminate\Support\Facades\Log;
 
 
 class ChangeRequestUpdateService
@@ -62,6 +63,7 @@ class ChangeRequestUpdateService
         $this->statusService = new ChangeRequestStatusService();
     }
 
+
     public function update($id, $request)
     {
         //$this->changeRequest_old = Change_request::find($id);
@@ -85,6 +87,25 @@ class ChangeRequestUpdateService
 
         // 2) Per-process validators
         if ($this->handleTechnicalTeamValidation($id, $request)) {
+            try {
+                $statusData = $this->statusService->extractStatusData($request);
+                $changeRequest = Change_request::find($id);
+                $uatPromoService = new \App\Services\ChangeRequest\SpecialFlows\UatPromoFlowService();
+                $newActiveStatus = $uatPromoService->handlePendingUatuActivation($changeRequest->id, $statusData, $changeRequest->workflow_type_id);
+
+                if ($newActiveStatus !== null) {
+                    $this->active_flag = $newActiveStatus;
+                    Log::info('Pending UAT (promo) active status updated by special flow', [
+                        'cr_id' => $changeRequest->id,
+                        'new_active' => $newActiveStatus
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Error in UatPromoFlowService', [
+                    'cr_id' => $changeRequest->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
             return true;
         }
 
