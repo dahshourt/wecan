@@ -64,7 +64,7 @@
                     </div>
                     <div class="card-body">
                         @php
-                            // Prepare group meta (labels + workflow ids per group + total counts)
+                            // Prepare group meta (labels + workflow ids per group)
                             $groupTabs = [];
                             foreach ($crs_by_user_groups_by_workflow as $groupKey => $workflowsData) {
                                 if ($groupKey === 'all') {
@@ -74,81 +74,37 @@
                                     $label = $groupModel ? $groupModel->title : 'Group #' . $groupKey;
                                 }
 
-                                // Calculate total count across all workflows in this group (memory efficient)
-                                $totalCount = 0;
-                                foreach ($workflowsData ?? [] as $workflowId => $collection) {
-                                    if ($collection && method_exists($collection, 'total')) {
-                                        $totalCount += $collection->total();
-                                    }
-                                }
-
                                 $groupTabs[$groupKey] = [
                                     'label' => $label,
                                     'workflow_ids' => array_keys($workflowsData ?? []),
-                                    'total_count' => $totalCount,
                                 ];
                             }
 
                             $groupKeys = array_keys($groupTabs);
-
-                            // Parse URL to find active group and workflow
-                            $activeGroupKey = null;
-                            $activeWorkflowId = null;
-
-                            // Check query parameters for type_{groupKey}_{workflowId} pattern
-                            foreach (request()->query() as $key => $value) {
-                                if (str_starts_with($key, 'type_')) {
-                                    $parts = explode('_', $key, 3);
-                                    if (count($parts) === 3) {
-                                        $urlGroupKey = $parts[1];
-                                        // Check if this group key exists (handle both string and int keys)
-                                        foreach ($groupKeys as $gk) {
-                                            if ((string)$gk === (string)$urlGroupKey) {
-                                                $activeGroupKey = $gk;
-                                                $activeWorkflowId = (int) $parts[2];
-                                                break 2;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Default to first group if not found
-                            if ($activeGroupKey === null) {
-                                $activeGroupKey = $groupKeys[0] ?? null;
-                            }
-
-                            // Validate workflow exists in active group and set default if needed
-                            if ($activeGroupKey !== null) {
-                                $validWorkflows = $groupTabs[$activeGroupKey]['workflow_ids'] ?? [];
-                                if (!$activeWorkflowId || !in_array($activeWorkflowId, $validWorkflows)) {
-                                    $activeWorkflowId = (int) ($validWorkflows[0] ?? null);
-                                }
-                            }
                         @endphp
 
                         @if(!empty($groupTabs))
-                            <!--begin::Group Tabs-->
+                            <!--begin::Group Tabs (top level, client-side like Top Management CRS)-->
                             <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-2x nav-tabs-line-primary mb-5" role="tablist">
                                 @foreach($groupTabs as $groupKey => $info)
-                                    @php $isActiveGroup = $groupKey === $activeGroupKey; @endphp
+                                    @php
+                                        $firstWorkflowIdForGroup = $info['workflow_ids'][0] ?? null;
+                                    @endphp
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center {{ $isActiveGroup ? 'active' : '' }}"
+                                        <a class="nav-link d-flex align-items-center {{ $loop->first ? 'active' : '' }}"
                                            data-toggle="tab"
                                            href="#group_tab_{{ $groupKey }}"
                                            role="tab"
-                                           aria-selected="{{ $isActiveGroup ? 'true' : 'false' }}"
+                                           aria-selected="{{ $loop->first ? 'true' : 'false' }}"
                                            data-group="{{ $groupKey }}"
-                                           data-first-workflow="{{ $info['workflow_ids'][0] ?? '' }}">
+                                           @if($firstWorkflowIdForGroup)
+                                               data-first-workflow="{{ $firstWorkflowIdForGroup }}"
+                                           @endif
+                                        >
                                             <span class="nav-icon mr-2">
                                                 <i class="flaticon2-layers-1 icon-lg"></i>
                                             </span>
                                             <span class="nav-text font-weight-bolder">{{ $info['label'] }}</span>
-                                            @if($info['total_count'] > 0)
-                                                <span class="label label-light-{{ $isActiveGroup ? 'primary' : 'dark' }}-inline label-pill font-weight-bold ml-2">
-                                                    {{ $info['total_count'] }}
-                                                </span>
-                                            @endif
                                         </a>
                                     </li>
                                 @endforeach
@@ -158,36 +114,30 @@
                             <div class="tab-content">
                                 @foreach($groupTabs as $groupKey => $info)
                                     @php
-                                        $workflowsForGroup = $active_work_flows->whereIn('id', $info['workflow_ids']);
-                                        $isActiveGroup = $groupKey === $activeGroupKey;
+                                        $workflowsIdsForGroup = $info['workflow_ids'];
+                                        $workflowsForGroup = $active_work_flows->whereIn('id', $workflowsIdsForGroup);
                                     @endphp
-                                    <div class="tab-pane fade {{ $isActiveGroup ? 'show active' : '' }}"
+                                    <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}"
                                          id="group_tab_{{ $groupKey }}"
                                          role="tabpanel">
 
-                                        @if($workflowsForGroup->isNotEmpty())
-                                            <!--begin::Workflow Tabs-->
-                                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-3x nav-tabs-line-primary mb-5" role="tablist">
+                                        @if($workflowsForGroup->count() > 0)
+                                            <!--begin::Workflow Tabs inside group (like old design)-->
+                                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-3x nav-tabs-line-primary mb-5"
+                                                role="tablist">
                                                 @foreach($workflowsForGroup as $workflow)
                                                     @php
-                                                        $isActiveWorkflow = $isActiveGroup && $workflow->id === $activeWorkflowId;
-                                                        $collection = $crs_by_user_groups_by_workflow[$groupKey][$workflow->id] ?? null;
-                                                        $workflowCount = $collection?->total() ?? 0;
+                                                        $isFirstWorkflow = $loop->first;
                                                     @endphp
                                                     <li class="nav-item">
-                                                        <a class="nav-link {{ $isActiveWorkflow ? 'active' : '' }}"
+                                                        <a class="nav-link {{ $isFirstWorkflow ? 'active' : '' }}"
                                                            data-toggle="tab"
                                                            href="#workflow_tab_{{ $groupKey }}_{{ $workflow->id }}"
                                                            role="tab"
-                                                           aria-selected="{{ $isActiveWorkflow ? 'true' : 'false' }}"
+                                                           aria-selected="{{ $isFirstWorkflow ? 'true' : 'false' }}"
                                                            data-group="{{ $groupKey }}"
                                                            data-workflow="{{ $workflow->id }}">
                                                             <span class="nav-text font-weight-bold">{{ $workflow->name }}</span>
-                                                            @if($workflowCount > 0)
-                                                                <span class="label label-light-{{ $isActiveWorkflow ? 'primary' : 'dark' }}-inline label-pill font-weight-bold ml-2">
-                                                                    {{ $workflowCount }}
-                                                                </span>
-                                                            @endif
                                                         </a>
                                                     </li>
                                                 @endforeach
@@ -199,12 +149,12 @@
                                                 @foreach($workflowsForGroup as $workflow)
                                                     @php
                                                         $collection = $crs_by_user_groups_by_workflow[$groupKey][$workflow->id] ?? null;
-                                                        $isActiveWorkflow = $isActiveGroup && $workflow->id === $activeWorkflowId;
+                                                        $isFirstWorkflow = $loop->first;
                                                     @endphp
-                                                    <div class="tab-pane fade {{ $isActiveWorkflow ? 'show active' : '' }}"
+                                                    <div class="tab-pane fade {{ $isFirstWorkflow ? 'show active' : '' }}"
                                                          id="workflow_tab_{{ $groupKey }}_{{ $workflow->id }}"
                                                          role="tabpanel">
-                                                        @if($collection?->isNotEmpty())
+                                                        @if($collection && $collection->count() > 0)
                                                             @if($workflow->id === 3)
                                                                 <x-crs.in-house :is-not-viewer="$user_is_not_viewer" :user-group="$user_group" :collection="$collection" />
                                                             @elseif($workflow->id === 5)
@@ -213,9 +163,11 @@
                                                                 <x-crs.promo :is-not-viewer="$user_is_not_viewer" :user-group="$user_group" :collection="$collection" />
                                                             @endif
 
+                                                            <!--begin: Pagination-->
                                                             <div class="d-flex justify-content-center mt-5">
                                                                 {{ $collection->links() }}
                                                             </div>
+                                                            <!--end: Pagination-->
                                                         @else
                                                             <div class="alert alert-light text-center" role="alert">
                                                                 <i class="la la-inbox text-muted" style="font-size: 3rem;"></i>
@@ -256,39 +208,12 @@
             <!--end::Entry-->
         </div>
         <!--end::Content-->
-
-        <!-- Description Modal -->
-        <div class="modal fade" id="descriptionModal" tabindex="-1" role="dialog" aria-labelledby="descriptionModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="descriptionModalLabel">Full Description</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body" style="white-space: pre-wrap;"></div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light-primary font-weight-bold" data-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
 @endsection
 
 @push('css')
     <style>
-        .description-preview {
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-
-        .description-preview:hover {
-            color: #0056b3 !important;
-        }
-
         /* Enhanced Tab Styling */
         .nav-tabs-line-3x {
             padding: 0.5rem 0;
@@ -395,9 +320,7 @@
             var id = $btn.data('cr-id');
             var $row = $btn.closest('tr');
             console.log("clicked", id, $row);
-            // Find details row only within the same table to avoid duplicates across tabs
-            var $table = $row.closest('table');
-            var $details = $table.find('tr.cr-details-row[data-cr-id="' + id + '"]');
+            var $details = $('tr.cr-details-row[data-cr-id="' + id + '"]');
             var expanded = $btn.attr('aria-expanded') === 'true';
 
             if (expanded) {
@@ -420,38 +343,73 @@
             }
             $(this).find('.js-toggle-cr-details').trigger('click');
         });
-    </script>
-
-    <script>
-        // Global handler for promo description modal
-        $(document).on('click', '.description-preview', function (event) {
-            event.preventDefault();
-
-            let fullDescription = $(this).attr('data-description') || '';
-            try {
-                // Decode HTML entities and parse JSON
-                fullDescription = $('<div>').html(fullDescription).text();
-                fullDescription = JSON.parse(fullDescription);
-            } catch (e) {
-                // If parsing fails, use the raw value
-                console.warn('Failed to parse description JSON:', e);
-            }
-
-            var $modal = $('#descriptionModal');
-            if ($modal.length) {
-                // Ensure modal is attached directly to body to avoid z-index / stacking issues
-                $modal.appendTo('body');
-                $modal.find('.modal-body').text(fullDescription);
-                $modal.modal('show');
-            }
+        $(function () {
+            $('tr.cr-row:first').find('.js-toggle-cr-details').trigger('click');
         });
     </script>
 
     <script>
         // Tab persistence and pagination handling using pageName: type_{groupKey}_{workflowId}
-        // Note: Initial tab activation is now handled server-side by PHP
-        // JavaScript only handles dynamic tab switching and URL updates
         $(document).ready(function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            let targetGroup = null;
+            let targetWorkflow = null;
+
+            // Find type_{group}_{workflow} parameter in URL
+            for (let [key, value] of urlParams.entries()) {
+                if (key.startsWith('type_')) {
+                    // key pattern: type_{groupKey}_{workflowId}
+                    const parts = key.split('_');
+                    if (parts.length >= 3) {
+                        targetGroup = parts[1];
+                        targetWorkflow = parts[2];
+                        break;
+                    }
+                }
+            }
+
+            // Function to activate tabs based on group and workflow
+            function activateTabs(groupKey, workflowId) {
+                if (!groupKey || !workflowId) {
+                    return;
+                }
+
+                // First, activate the group tab
+                const groupTabSelector = 'a[href="#group_tab_' + groupKey + '"]';
+                const groupTab = $(groupTabSelector);
+                
+                if (groupTab.length) {
+                    // Remove active class from all group tabs
+                    $('.nav-tabs a[href^="#group_tab_"]').removeClass('active').parent().removeClass('active');
+                    $('.tab-pane[id^="group_tab_"]').removeClass('show active');
+                    
+                    // Activate the target group tab
+                    groupTab.addClass('active').attr('aria-selected', 'true').parent().addClass('active');
+                    $('#group_tab_' + groupKey).addClass('show active');
+                    
+                    // After group tab is activated, activate the workflow tab
+                    setTimeout(function() {
+                        const workflowTabSelector = 'a[data-group="' + groupKey + '"][data-workflow="' + workflowId + '"]';
+                        const workflowTab = $(workflowTabSelector);
+                        
+                        if (workflowTab.length) {
+                            // Remove active class from all workflow tabs in this group
+                            $('a[data-group="' + groupKey + '"][data-workflow]').removeClass('active').parent().removeClass('active');
+                            $('.tab-pane[id^="workflow_tab_' + groupKey + '_"]').removeClass('show active');
+                            
+                            // Activate the target workflow tab
+                            workflowTab.addClass('active').attr('aria-selected', 'true').parent().addClass('active');
+                            $('#workflow_tab_' + groupKey + '_' + workflowId).addClass('show active');
+                        }
+                    }, 150);
+                }
+            }
+
+            // If we have a type_{group}_{workflow} param, activate the right group & workflow tabs
+            if (targetGroup !== null && targetWorkflow !== null) {
+                activateTabs(targetGroup, targetWorkflow);
+            }
+
             // When switching workflow tabs, update URL to keep only the current type_{group}_{workflow} param
             $(document).on('shown.bs.tab', '.nav-tabs a[data-workflow]', function (e) {
                 const $tab = $(e.target);
@@ -461,15 +419,6 @@
                 if (!groupKey || !workflowId) {
                     return;
                 }
-
-                // Update badge colors for workflow tabs in this group
-                $('a[data-group="' + groupKey + '"][data-workflow]').each(function() {
-                    if ($(this).is($tab)) {
-                        $(this).find('.label').removeClass('label-light-dark-inline').addClass('label-light-primary-inline');
-                    } else {
-                        $(this).find('.label').removeClass('label-light-primary-inline').addClass('label-light-dark-inline');
-                    }
-                });
 
                 const currentParams = new URLSearchParams(window.location.search);
                 const newParams = new URLSearchParams();
@@ -497,15 +446,6 @@
                 if (!groupKey || !firstWorkflowId) {
                     return;
                 }
-
-                // Update badge colors for group tabs
-                $('.nav-tabs a[href^="#group_tab_"]').each(function() {
-                    if ($(this).is($tab)) {
-                        $(this).find('.label').removeClass('label-light-dark-inline').addClass('label-light-primary-inline');
-                    } else {
-                        $(this).find('.label').removeClass('label-light-primary-inline').addClass('label-light-dark-inline');
-                    }
-                });
 
                 // Activate the first workflow tab inside this group
                 const workflowTabSelector = 'a[data-group="' + groupKey + '"][data-workflow="' + firstWorkflowId + '"]';
