@@ -34,6 +34,7 @@ return [
         'host' => env('EWS_HOST'),
         'username' => env('EWS_USERNAME'),
         'password' => env('EWS_PASSWORD'),
+        // 'ssl_verify' => env('EWS_SSL_VERIFY', true),
     ],
 
 ];
