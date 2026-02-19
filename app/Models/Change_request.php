@@ -682,6 +682,11 @@ class Change_request extends Model
         }
     }
 
+    public function scopeWithCurrentCRStatus(Builder $query): Builder
+    {
+        return $query->where();
+    }
+
     public function scopeWithAllCRStatusesInfo(Builder $query): Builder
     {
         return $query->with(['requestStatuses' => function ($query) {

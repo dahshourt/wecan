@@ -105,6 +105,7 @@ class ChangeRequestSearchService
             ->withAllCRStatusesInfo()
             ->with(
                 [
+                    'technicalCr.technicalCRTeams',
                     ...$work_flow_relations,
                 ]
             );
