@@ -682,6 +682,21 @@ class Change_request extends Model
         }
     }
 
+    public function scopeWithAllCRStatusesInfo(Builder $query): Builder
+    {
+        return $query->with(['requestStatuses' => function ($query) {
+            $query->with([
+                'currentGroup',
+                'technical_group',
+                'referenceGroup',
+                'previousGroup',
+                'status' => function ($query) {
+                    $query->with('viewByGroupStatuses.group');
+                }
+            ]);
+    }]);
+    }
+
     public function getAllCurrentStatus()
     {
         $statuses = Change_request_statuse::where('cr_id', $this->id)
