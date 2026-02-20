@@ -645,12 +645,10 @@ class Change_request extends Model
             $group = $this->getCurrentGroupId();
             $technical_cr_team_status = null;
 
-            $TechnicalCr = TechnicalCr::where('cr_id', $this->id)
-                ->where('status', '0')
-                ->first();
+            $TechnicalCr = $this->technicalCr;
 
-            if ($TechnicalCr) {
-                $technical_cr_team_status = $TechnicalCr->technical_cr_team()
+            if ($TechnicalCr && $TechnicalCr->status == '0') {
+                $technical_cr_team_status = $TechnicalCr->technicalCRTeams
                     ->where('group_id', $group)
                     ->where('status', '0')
                     ->first();
@@ -1161,7 +1159,7 @@ class Change_request extends Model
 
         $viewStatuses = $this->getViewableStatuses();
 
-        $status = Change_request_statuse::where('cr_id', $this->id)
+        $status = $this->requestStatuses->where('cr_id', $this->id)
             ->whereIn('new_status_id', $viewStatuses)
             ->where('active', '1') // Ensure we only look for active statuses if that was the intent
             ->first();
@@ -1171,7 +1169,7 @@ class Change_request extends Model
         }
 
         // Fallback 1: Active status
-        $status = Change_request_statuse::where('cr_id', $this->id)
+        $status = $this->requestStatuses->where('cr_id', $this->id)
             ->where('active', '1')
             ->first();
 
@@ -1180,18 +1178,25 @@ class Change_request extends Model
         }
 
         // Fallback 2: Latest status
-        return Change_request_statuse::where('cr_id', $this->id)
-            ->orderBy('id', 'desc')
+        return $this->requestStatuses->where('cr_id', $this->id)
+            ->sortByDesc('id')
             ->first();
     }
 
     private function getViewableStatuses(): array
     {
         $group = $this->getCurrentGroupId();
-        $viewStatuses = GroupStatuses::where('group_id', $group)
-            ->where('type', 2)
-            ->pluck('status_id')
-            ->toArray();
+
+        if (! app()->bound("group_{$group}_statuses")) {
+            $group_statuses = GroupStatuses::where('group_id', $group)
+                ->where('type', 2)
+                ->pluck('status_id')
+                ->toArray();
+
+            app()->instance("group_{$group}_statuses", $group_statuses);
+        }
+
+        $viewStatuses = app("group_{$group}_statuses");
 
         $technicalTeamStatus = $this->getTechnicalTeamCurrentStatus();
 
