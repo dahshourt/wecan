@@ -193,7 +193,7 @@ return [
         'value' => 'cap_users',
         'label' => 'Cap Users',
         'category' => 'Explicit',
-        'needs_identifier' => true,
+        'needs_identifier' => false,
         'identifier_type' => 'email',
         'description' => 'Send to a specific group by ID'
     ],

@@ -17,3 +17,5 @@ package-lock.json
 default(1)
 /public/uploads
 .vscode/sftp.json
+
+app/Http/Controllers/Auth/CustomAuthController.php

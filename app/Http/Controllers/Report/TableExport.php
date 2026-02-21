@@ -37,11 +37,45 @@ class TableExport implements FromCollection, WithHeadings
             })
             ->leftJoin('users as usr', 'usr.id', '=', 'custom_field_chang.custom_field_value')
             ->leftJoin('roles', 'roles.id', '=', 'usr.role_id')
+            ->leftJoin('change_request_custom_fields as dpnd_on', function($join) {
+                $join->on('dpnd_on.cr_id', '=', 'req.id')
+                     ->where('dpnd_on.custom_field_name', '=', 'cr_type');
+            })
+             ->leftJoin('change_request_custom_fields as on_bhls', function($join) {
+                $join->on('on_bhls.cr_id', '=', 'req.id')
+                     ->where('on_bhls.custom_field_name', '=', 'on_behalf');
+            })
             ->select(
                 'req.cr_no',
                 'apps.name as Applications',
                 'req.title',
                 'flow.name as Workflow_Type',
+                DB::raw("
+                    CASE 
+                        WHEN req.top_management = '1' THEN 'YES' 
+                        ELSE 'NO' 
+                    END as Top_Management
+                "),
+                DB::raw("
+                    CASE 
+                        WHEN req.hold = '1' THEN 'YES' 
+                        ELSE 'NO' 
+                    END as On_Hold
+                "),
+                 DB::raw("
+                    CASE 
+                        WHEN on_bhls.custom_field_value = '1' THEN 'YES' 
+                        ELSE 'NO' 
+                    END as On_Behalf
+                "),
+                DB::raw("
+                    CASE 
+                        WHEN dpnd_on.custom_field_value = '1' THEN 'Normal' 
+                        WHEN dpnd_on.custom_field_value = '2' THEN 'Depend On' 
+                        WHEN dpnd_on.custom_field_value = '3' THEN 'Relevant' 
+                        ELSE 'N/A' 
+                    END as CR_Type
+                "),
                 DB::raw("'NA' as Vendor_Name"),
                 DB::raw("GROUP_CONCAT(DISTINCT stat.status_name ORDER BY stat.status_name SEPARATOR ', ') as Current_Status"),
                 DB::raw("CONCAT(sla.unit_sla_time, ' ', sla.sla_type_unit) as Assigned_SLA"),
@@ -88,6 +122,10 @@ class TableExport implements FromCollection, WithHeadings
             'Applications',
             'Title',
             'Workflow Type',
+            'Top Management',
+            'On Hold',
+            'On Behalf',
+            'CR Type',
             'Vendor Name',
             'Current Status',
             'Assigned SLA',

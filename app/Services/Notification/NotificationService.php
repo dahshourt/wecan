@@ -297,21 +297,31 @@ class NotificationService
                 $group = Group::where('title',config('constants.group_names.pmo_team'))->first();
                 return $group ? [$group->head_group_email] : [config('constants.mails.pmo_team')];
             case 'cap_users':
-                // If cap users were provided in the event/request (e.g. during update), use them
-                if (property_exists($event, 'request') && isset($event->request->cap_users) && is_array($event->request->cap_users) && !empty($event->request->cap_users)) {
-                    $emails = User::whereIn('id', $event->request->cap_users)->where('active', '1')->pluck('email')->filter()->values()->toArray();
-                    $this->toMailUser = $emails[0] ?? null;
-                    return $emails;
+                // Try to load active CAB users directly from cab_cr_users table for this CR
+                if (property_exists($event, 'changeRequest') && $event->changeRequest && isset($event->changeRequest->id)) {
+                    $emails = \Illuminate\Support\Facades\DB::table('cab_cr_users')
+                        ->join('cab_crs', 'cab_crs.id', '=', 'cab_cr_users.cab_cr_id')
+                        ->join('users', 'users.id', '=', 'cab_cr_users.user_id')
+                        ->where('cab_crs.cr_id', $event->changeRequest->id)
+                        ->whereRaw('CAST(cab_crs.status AS CHAR) = ?', ['0'])
+                        ->whereRaw('CAST(cab_cr_users.status AS CHAR) = ?', ['0'])
+                        ->where('users.active', '1')
+                        ->pluck('users.email')
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->toArray();
+
+                    if (!empty($emails)) {
+                        $this->toMailUser = $emails[0];
+                        return $emails;
+                    }
                 }
 
-                // Otherwise, try to load active CAB record for this CR and return its active CAB users
-                if (property_exists($event, 'changeRequest') && $event->changeRequest && isset($event->changeRequest->id)) {
-                    $cabCr = \App\Models\CabCr::where('cr_id', $event->changeRequest->id)
-                        ->whereRaw('CAST(status AS CHAR) = ?', ['0'])
-                        ->first();
-
-                    if ($cabCr) {
-                        $emails = $cabCr->activeCabCrUsers()->with('user')->get()->pluck('user.email')->filter()->values()->toArray();
+                // Fallback: If cap users were provided in the event/request (e.g. during update), use them
+                if (property_exists($event, 'request') && isset($event->request->cap_users) && is_array($event->request->cap_users) && !empty($event->request->cap_users)) {
+                    $emails = \App\Models\User::whereIn('id', $event->request->cap_users)->where('active', '1')->pluck('email')->filter()->values()->toArray();
+                    if (!empty($emails)) {
                         $this->toMailUser = $emails[0] ?? null;
                         return $emails;
                     }

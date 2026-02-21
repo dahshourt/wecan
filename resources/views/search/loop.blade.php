@@ -47,6 +47,8 @@
         <td>{{ $cr->created_at ?? "" }}</td>
         <td>{{ $cr->requester_department->name ?? "" }}</td>
         <td>{{ $cr->application->name ?? "" }}</td>
+        <td>{{ $cr->top_management == '1' ? 'YES' : 'NO' }}</td>
+        <td>{{ $cr->hold == '1' ? 'YES' : 'NO' }}</td>
         <td>{{ $cr->updated_at ?? "" }}</td>
     @else
         <th scope="row" class="align-middle">

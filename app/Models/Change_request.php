@@ -35,6 +35,8 @@ class Change_request extends Model
         'is_overdue',
         'duration_summary',
         'completion_percentage',
+        'ticket_type',
+        'on_behalf_status',
     ];
 
     /**
@@ -443,6 +445,31 @@ class Change_request extends Model
         }
 
         return $totalPhases > 0 ? round(($completedPhases / $totalPhases) * 100) : 0;
+    }
+
+    public function getTicketTypeAttribute()
+    {
+        $field = $this->changeRequestCustomFields->where('custom_field_name', 'cr_type')->first();
+        $val = $field ? $field->custom_field_value : null;
+
+        if ($val == 1) {
+            return 'Normal';
+        }
+        if ($val == 2) {
+            return 'Depend On';
+        }
+        if ($val == 3) {
+            return 'Relevant';
+        }
+
+        return 'N/A';
+    }
+
+    public function getOnBehalfStatusAttribute()
+    {
+        $field = $this->changeRequestCustomFields->where('custom_field_name', 'on_behalf')->first();
+
+        return ($field && $field->custom_field_value == '1') ? 'YES' : 'N/A';
     }
 
     // ===================================

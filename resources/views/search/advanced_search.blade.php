@@ -364,6 +364,8 @@
                                                 <th>Creation Date</th>
                                                 <th>Requesting Department</th>
                                                 <th>Targeted System</th>
+                                                <th>Top Management</th>
+                                                <th>On Hold</th>
                                                 <th>Last Action Date</th>
                                                 <th>Action</th>
                                             @else

@@ -188,6 +188,10 @@
                                                             <th>Status</th>
                                                             <th>CR Manager</th>
                                                             <th>Target System</th>
+                                                            <th>CR Type</th>
+                                                            <th>Top Management</th>
+                                                            <th>On Behalf</th>
+                                                            <th>On Hold</th>
                                                             <th>Design Duration</th>
                                                             <th>Start Design Time</th>
                                                             <th>End Design Time</th>
@@ -234,6 +238,10 @@
                                                                 <td>{{ $status_name }}</td>
                                                                 <td>{{ $cr->member?->user_name }}</td>
                                                                 <td>{{ $cr->application?->name }}</td>
+                                                                <td>{{ $cr->ticket_type }}</td>
+                                                                <td>{{ $cr->top_management == '1' ? 'YES' : 'N/A' }}</td>
+                                                                <td>{{ $cr->on_behalf_status }}</td>
+                                                                <td>{{ $cr->hold == '1' ? 'YES' : 'N/A' }}</td>
                                                                 <td>{{ $cr->design_duration }}</td>
                                                                 <td>{{ $cr->start_design_time }}</td>
                                                                 <td>{{ $cr->end_design_time }}</td>
