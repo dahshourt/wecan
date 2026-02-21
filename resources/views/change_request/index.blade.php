@@ -62,81 +62,135 @@
                             </div>
                         </div>
                     </div>
-                    @php
-                        $roles_name = auth()->user()->roles->pluck('name');
-                    @endphp
                     <div class="card-body">
                         @php
-                            // Filter workflows to only show those with CRs
-                            $workflows_with_crs = $active_work_flows->whereIn('id', array_keys($crs_by_work_flow_types));
-                            
-                            // Determine active tab from request query parameters
-                            $active_tab_id = null;
-                            foreach (request()->query() as $key => $value) {
-                                if (str_starts_with($key, 'type_')) {
-                                    $active_tab_id = (int) str_replace('type_', '', $key);
-                                    break;
+                            // Prepare group meta (labels + workflow ids per group)
+                            $groupTabs = [];
+                            foreach ($crs_by_user_groups_by_workflow as $groupKey => $workflowsData) {
+                                if ($groupKey === 'all') {
+                                    $label = 'All Groups';
+                                } else {
+                                    $groupModel = $user_groups->firstWhere('id', (int) $groupKey);
+                                    $label = $groupModel ? $groupModel->title : 'Group #' . $groupKey;
                                 }
+
+                                $groupTabs[$groupKey] = [
+                                    'label' => $label,
+                                    'workflow_ids' => array_keys($workflowsData ?? []),
+                                ];
                             }
-                            
-                            // If no active tab from query, default to first workflow
-                            if ($active_tab_id === null && $workflows_with_crs->count() > 0) {
-                                $active_tab_id = $workflows_with_crs->first()->id;
-                            }
+
+                            $groupKeys = array_keys($groupTabs);
                         @endphp
 
-                        @if($workflows_with_crs->count() > 0)
-                            <!--begin: Tabs Navigation-->
-                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-3x nav-tabs-line-primary mb-5"
-                                role="tablist">
-                                @foreach($workflows_with_crs as $index => $workflow)
+                        @if(!empty($groupTabs))
+                            <!--begin::Group Tabs (top level, client-side like Top Management CRS)-->
+                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-2x nav-tabs-line-primary mb-5" role="tablist">
+                                @foreach($groupTabs as $groupKey => $info)
                                     @php
-                                        $is_active = $workflow->id === $active_tab_id;
+                                        $firstWorkflowIdForGroup = $info['workflow_ids'][0] ?? null;
                                     @endphp
                                     <li class="nav-item">
-                                        <a class="nav-link {{ $is_active ? 'active' : '' }}"
+                                        <a class="nav-link d-flex align-items-center {{ $loop->first ? 'active' : '' }}"
                                            data-toggle="tab"
-                                           href="#workflow_tab_{{ $workflow->id }}"
+                                           href="#group_tab_{{ $groupKey }}"
                                            role="tab"
-                                           aria-selected="{{ $is_active ? 'true' : 'false' }}">
-                                            <span class="nav-text font-weight-bold">{{ $workflow->name }}</span>
+                                           aria-selected="{{ $loop->first ? 'true' : 'false' }}"
+                                           data-group="{{ $groupKey }}"
+                                           @if($firstWorkflowIdForGroup)
+                                               data-first-workflow="{{ $firstWorkflowIdForGroup }}"
+                                           @endif
+                                        >
+                                            <span class="nav-icon mr-2">
+                                                <i class="flaticon2-layers-1 icon-lg"></i>
+                                            </span>
+                                            <span class="nav-text font-weight-bolder">{{ $info['label'] }}</span>
                                         </a>
                                     </li>
                                 @endforeach
                             </ul>
-                            <!--end: Tabs Navigation-->
+                            <!--end::Group Tabs-->
 
-                            <!--begin: Tab Content-->
                             <div class="tab-content">
-                                @foreach($workflows_with_crs as $index => $workflow)
+                                @foreach($groupTabs as $groupKey => $info)
                                     @php
-                                        $is_active = $workflow->id === $active_tab_id;
+                                        $workflowsIdsForGroup = $info['workflow_ids'];
+                                        $workflowsForGroup = $active_work_flows->whereIn('id', $workflowsIdsForGroup);
                                     @endphp
-                                    <div class="tab-pane fade {{ $is_active ? 'show active' : '' }}"
-                                         id="workflow_tab_{{ $workflow->id }}"
+                                    <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}"
+                                         id="group_tab_{{ $groupKey }}"
                                          role="tabpanel">
 
-                                        @php
-                                            $collection = $crs_by_work_flow_types[$workflow->id];
-                                        @endphp
+                                        @if($workflowsForGroup->count() > 0)
+                                            <!--begin::Workflow Tabs inside group (like old design)-->
+                                            <ul class="nav nav-tabs nav-tabs-line nav-tabs-line-3x nav-tabs-line-primary mb-5"
+                                                role="tablist">
+                                                @foreach($workflowsForGroup as $workflow)
+                                                    @php
+                                                        $isFirstWorkflow = $loop->first;
+                                                    @endphp
+                                                    <li class="nav-item">
+                                                        <a class="nav-link {{ $isFirstWorkflow ? 'active' : '' }}"
+                                                           data-toggle="tab"
+                                                           href="#workflow_tab_{{ $groupKey }}_{{ $workflow->id }}"
+                                                           role="tab"
+                                                           aria-selected="{{ $isFirstWorkflow ? 'true' : 'false' }}"
+                                                           data-group="{{ $groupKey }}"
+                                                           data-workflow="{{ $workflow->id }}">
+                                                            <span class="nav-text font-weight-bold">{{ $workflow->name }}</span>
+                                                        </a>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                            <!--end::Workflow Tabs-->
 
-                                        @if($workflow->id === 3)
-                                            <x-crs.in-house :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"  :collection="$collection" />
-                                        @elseif($workflow->id === 5)
-                                            <x-crs.vendor :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"  :collection="$collection" />
-                                        @elseif($workflow->id === 9)
-                                            <x-crs.promo :is-not-viewer="$user_is_not_viewer" :user-group="$user_group"  :collection="$collection" />
+                                            <!--begin::Workflow Tab Content-->
+                                            <div class="tab-content">
+                                                @foreach($workflowsForGroup as $workflow)
+                                                    @php
+                                                        $collection = $crs_by_user_groups_by_workflow[$groupKey][$workflow->id] ?? null;
+                                                        $isFirstWorkflow = $loop->first;
+                                                    @endphp
+                                                    <div class="tab-pane fade {{ $isFirstWorkflow ? 'show active' : '' }}"
+                                                         id="workflow_tab_{{ $groupKey }}_{{ $workflow->id }}"
+                                                         role="tabpanel">
+                                                        @if($collection && $collection->count() > 0)
+                                                            @if($workflow->id === 3)
+                                                                <x-crs.in-house :is-not-viewer="$user_is_not_viewer" :user-group="$user_group" :collection="$collection" />
+                                                            @elseif($workflow->id === 5)
+                                                                <x-crs.vendor :is-not-viewer="$user_is_not_viewer" :user-group="$user_group" :collection="$collection" />
+                                                            @elseif($workflow->id === 9)
+                                                                <x-crs.promo :is-not-viewer="$user_is_not_viewer" :user-group="$user_group" :collection="$collection" />
+                                                            @endif
+
+                                                            <!--begin: Pagination-->
+                                                            <div class="d-flex justify-content-center mt-5">
+                                                                {{ $collection->links() }}
+                                                            </div>
+                                                            <!--end: Pagination-->
+                                                        @else
+                                                            <div class="alert alert-light text-center" role="alert">
+                                                                <i class="la la-inbox text-muted" style="font-size: 3rem;"></i>
+                                                                <h4 class="text-muted mt-3">No Change Requests Found</h4>
+                                                                <p class="text-muted mb-0">
+                                                                    There are currently no change requests available for this group and workflow.
+                                                                </p>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                            <!--end::Workflow Tab Content-->
+                                        @else
+                                            <div class="alert alert-light text-center" role="alert">
+                                                <i class="la la-inbox text-muted" style="font-size: 3rem;"></i>
+                                                <h4 class="text-muted mt-3">No Change Requests Found</h4>
+                                                <p class="text-muted mb-0">There are currently no change requests available for this group.</p>
+                                            </div>
                                         @endif
-
-                                            <!--begin: Pagination-->
-                                        <div class="d-flex justify-content-center mt-5">
-                                            {{ $collection->links() }}
-                                        </div>
-                                        <!--end: Pagination-->
                                     </div>
                                 @endforeach
                             </div>
-                            <!--end: Tab Content-->
                         @else
                             <!--begin: No Data State-->
                             <div class="alert alert-light text-center" role="alert">
@@ -295,56 +349,127 @@
     </script>
 
     <script>
-        // Tab persistence and pagination handling
+        // Tab persistence and pagination handling using pageName: type_{groupKey}_{workflowId}
         $(document).ready(function () {
-            // Check for any type_X parameter in URL to determine active tab
             const urlParams = new URLSearchParams(window.location.search);
-            let activeTabId = null;
+            let targetGroup = null;
+            let targetWorkflow = null;
 
-            // Check for type_X parameters to determine active tab
+            // Find type_{group}_{workflow} parameter in URL
             for (let [key, value] of urlParams.entries()) {
                 if (key.startsWith('type_')) {
-                    activeTabId = key.replace('type_', '');
-                    break;
+                    // key pattern: type_{groupKey}_{workflowId}
+                    const parts = key.split('_');
+                    if (parts.length >= 3) {
+                        targetGroup = parts[1];
+                        targetWorkflow = parts[2];
+                        break;
+                    }
                 }
             }
 
-            if (activeTabId) {
-                // Activate the tab from URL parameter
-                const tabLink = $('a[href="#workflow_tab_' + activeTabId + '"]');
-                if (tabLink.length) {
-                    $('.nav-tabs a').removeClass('active');
-                    $('.tab-pane').removeClass('show active');
-                    tabLink.addClass('active').attr('aria-selected', 'true');
-                    $('#workflow_tab_' + activeTabId).addClass('show active');
+            // Function to activate tabs based on group and workflow
+            function activateTabs(groupKey, workflowId) {
+                if (!groupKey || !workflowId) {
+                    return;
+                }
+
+                // First, activate the group tab
+                const groupTabSelector = 'a[href="#group_tab_' + groupKey + '"]';
+                const groupTab = $(groupTabSelector);
+                
+                if (groupTab.length) {
+                    // Remove active class from all group tabs
+                    $('.nav-tabs a[href^="#group_tab_"]').removeClass('active').parent().removeClass('active');
+                    $('.tab-pane[id^="group_tab_"]').removeClass('show active');
+                    
+                    // Activate the target group tab
+                    groupTab.addClass('active').attr('aria-selected', 'true').parent().addClass('active');
+                    $('#group_tab_' + groupKey).addClass('show active');
+                    
+                    // After group tab is activated, activate the workflow tab
+                    setTimeout(function() {
+                        const workflowTabSelector = 'a[data-group="' + groupKey + '"][data-workflow="' + workflowId + '"]';
+                        const workflowTab = $(workflowTabSelector);
+                        
+                        if (workflowTab.length) {
+                            // Remove active class from all workflow tabs in this group
+                            $('a[data-group="' + groupKey + '"][data-workflow]').removeClass('active').parent().removeClass('active');
+                            $('.tab-pane[id^="workflow_tab_' + groupKey + '_"]').removeClass('show active');
+                            
+                            // Activate the target workflow tab
+                            workflowTab.addClass('active').attr('aria-selected', 'true').parent().addClass('active');
+                            $('#workflow_tab_' + groupKey + '_' + workflowId).addClass('show active');
+                        }
+                    }, 150);
                 }
             }
 
-            // When clicking on tabs, update URL without reloading
-            const target_element = $('.nav-tabs a[data-toggle="tab"]');
+            // If we have a type_{group}_{workflow} param, activate the right group & workflow tabs
+            if (targetGroup !== null && targetWorkflow !== null) {
+                activateTabs(targetGroup, targetWorkflow);
+            }
 
-            target_element.on('shown.bs.tab', function (e) {
-                const tabId = $(e.target).attr('href').replace('#workflow_tab_', '');
+            // When switching workflow tabs, update URL to keep only the current type_{group}_{workflow} param
+            $(document).on('shown.bs.tab', '.nav-tabs a[data-workflow]', function (e) {
+                const $tab = $(e.target);
+                const groupKey = $tab.data('group');
+                const workflowId = $tab.data('workflow');
 
-                // Build new URL preserving all existing parameters except old type_X ones
+                if (!groupKey || !workflowId) {
+                    return;
+                }
+
                 const currentParams = new URLSearchParams(window.location.search);
                 const newParams = new URLSearchParams();
 
-                // Keep all parameters except type_X ones (to reset pagination when switching tabs)
+                // Preserve all non-type_* params
                 for (let [key, value] of currentParams.entries()) {
                     if (!key.startsWith('type_')) {
                         newParams.append(key, value);
                     }
                 }
 
-                // Add the type_X parameter with page 1 (default)
-                newParams.set('type_' + tabId, '1');
+                // Add the new type_{group}_{workflow} param with page 1
+                newParams.set('type_' + groupKey + '_' + workflowId, '1');
 
                 const newUrl = window.location.pathname + '?' + newParams.toString();
                 window.history.pushState({path: newUrl}, '', newUrl);
             });
 
-            // No need to update pagination links - they already have type_X parameter from Laravel
+            // When switching group tabs, also update URL and ensure first workflow of that group is selected
+            $(document).on('shown.bs.tab', '.nav-tabs a[data-group]:not([data-workflow])', function (e) {
+                const $tab = $(e.target);
+                const groupKey = $tab.data('group');
+                const firstWorkflowId = $tab.data('first-workflow');
+
+                if (!groupKey || !firstWorkflowId) {
+                    return;
+                }
+
+                // Activate the first workflow tab inside this group
+                const workflowTabSelector = 'a[data-group="' + groupKey + '"][data-workflow="' + firstWorkflowId + '"]';
+                const workflowTab = $(workflowTabSelector);
+                if (workflowTab.length) {
+                    workflowTab.tab('show');
+                }
+
+                const currentParams = new URLSearchParams(window.location.search);
+                const newParams = new URLSearchParams();
+
+                // Preserve all non-type_* params
+                for (let [key, value] of currentParams.entries()) {
+                    if (!key.startsWith('type_')) {
+                        newParams.append(key, value);
+                    }
+                }
+
+                // Add the new type_{group}_{workflow} param with page 1
+                newParams.set('type_' + groupKey + '_' + firstWorkflowId, '1');
+
+                const newUrl = window.location.pathname + '?' + newParams.toString();
+                window.history.pushState({path: newUrl}, '', newUrl);
+            });
         });
     </script>
 @endpush
