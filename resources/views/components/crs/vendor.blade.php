@@ -32,7 +32,6 @@
         </thead>
         <tbody>
         @if($collection)
-
             @foreach ($collection as $item)
                 @php
 
@@ -97,14 +96,12 @@
                             <td></td>
                         @endif
                     </tr>
-                @endif
 
-
-                @php
-                    $detailsColspan = 12;
-                    $statuses = $item->getallCurrentStatus();
-                @endphp
-                <tr class="cr-details-row" data-cr-id="{{ $item->id }}" style="display:none;">
+                    @php
+                        $detailsColspan = 12;
+                        $statuses = $item->getallCurrentStatus();
+                    @endphp
+                    <tr class="cr-details-row" data-cr-id="{{ $item->id }}" style="display:none;">
                     <td colspan="{{ $detailsColspan }}" class="p-0">
                         <div style="background: #f8f9fb; padding: 1.25rem 1rem; border-top: 2px solid #e4e6ef;">
 
@@ -187,6 +184,7 @@
                         </div>
                     </td>
                 </tr>
+                @endif
 
             @endforeach
         @else
