@@ -42,8 +42,8 @@
                     }
                     $current_status = $item->getCurrentStatus()->status;
                     $view_technical_team_flag = $current_status->view_technical_team_flag;
-                    $assigned_technical_teams = $item->technical_Cr? $item->technical_Cr->technical_cr_team->pluck('group_id')->toArray() : [];
-                    $check_if_status_active = $item->technical_Cr?$item->technical_Cr->technical_cr_team->where('group_id',$default_group)->where('status','0')->count() : 0;
+                    $assigned_technical_teams = $item->technicalCr? $item->technicalCr->technicalCRTeams->pluck('group_id')->toArray() : [];
+                    $check_if_status_active = $item->technicalCr?$item->technicalCr->technicalCRTeams->where('group_id',$default_group)->where('status','0')->count() : 0;
                 @endphp
 
                 @if(!$view_technical_team_flag || ($view_technical_team_flag && in_array($default_group, $assigned_technical_teams) && $check_if_status_active))
@@ -97,12 +97,8 @@
                         @endif
                     </tr>
 
-                    @php
-                        $detailsColspan = 12;
-                        $statuses = $item->getallCurrentStatus();
-                    @endphp
                     <tr class="cr-details-row" data-cr-id="{{ $item->id }}" style="display:none;">
-                    <td colspan="{{ $detailsColspan }}" class="p-0">
+                    <td colspan="12" class="p-0">
                         <div style="background: #f8f9fb; padding: 1.25rem 1rem; border-top: 2px solid #e4e6ef;">
 
                             <table class="table table-hover mb-0"
@@ -124,7 +120,7 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-                                @forelse($statuses as $status)
+                                @forelse($item->requestStatuses as $status)
                                     <tr style="border-bottom: 1px solid #f3f4f6; transition: all 0.2s;">
                                         <td class="align-middle" style="padding: 1rem 1.25rem;">
                                 <span class="font-weight-bold text-dark" style="font-size: 0.9rem;">

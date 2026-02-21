@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TechnicalCr extends Model
 {
@@ -46,6 +47,11 @@ class TechnicalCr extends Model
     }
 
     public function technical_cr_team()
+    {
+        return $this->hasMany(TechnicalCrTeam::class, 'technical_cr_id', 'id');
+    }
+
+    public function technicalCRTeams(): HasMany
     {
         return $this->hasMany(TechnicalCrTeam::class, 'technical_cr_id', 'id');
     }

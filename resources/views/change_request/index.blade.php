@@ -3,7 +3,7 @@
 @section('content')
     @php
         $roles_name = auth()->user()->roles->pluck('name');
-        $user_group = session()->has('current_group') ? session('current_group') : auth()->user()->defualt_group->id;
+        $user_group = session()->has('current_group') ? session('current_group') : auth()->user()->default_group;
         $user_group =\App\Models\Group::find($user_group);
         $user_is_not_viewer = ! ($roles_name->count() === 1 && $roles_name->contains('Viewer'));
     @endphp
