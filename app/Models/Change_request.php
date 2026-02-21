@@ -1233,9 +1233,18 @@ class Change_request extends Model
         }
 
         try {
-            $workflow = NewWorkFlow::where('from_status_id', $status->old_status_id)
-                ->where('type_id', $this->workflow_type_id)
-                ->first();
+            // Try to use preloaded workflows first
+            $preloadedWorkflows = app()->has('preloaded_workflows') ? app('preloaded_workflows') : null;
+            
+            if ($preloadedWorkflows) {
+                $key = $this->workflow_type_id . '_' . $status->old_status_id;
+                $workflow = $preloadedWorkflows->get($key)?->first();
+            } else {
+                // Fallback to database query if not preloaded
+                $workflow = NewWorkFlow::where('from_status_id', $status->old_status_id)
+                    ->where('type_id', $this->workflow_type_id)
+                    ->first();
+            }
 
             $status->same_time = $workflow->same_time ?? 0;
             $status->to_status_label = $workflow->to_status_label ?? '';
@@ -1257,9 +1266,18 @@ class Change_request extends Model
         }
 
         try {
-            $workflow = NewWorkFlow::where('from_status_id', $status->new_status_id)
-                ->where('type_id', $this->workflow_type_id)
-                ->first();
+            // Try to use preloaded workflows first
+            $preloadedWorkflows = app()->has('preloaded_workflows') ? app('preloaded_workflows') : null;
+            
+            if ($preloadedWorkflows) {
+                $key = $this->workflow_type_id . '_' . $status->new_status_id;
+                $workflow = $preloadedWorkflows->get($key)?->first();
+            } else {
+                // Fallback to database query if not preloaded
+                $workflow = NewWorkFlow::where('from_status_id', $status->new_status_id)
+                    ->where('type_id', $this->workflow_type_id)
+                    ->first();
+            }
 
             $status->same_time = $workflow->same_time ?? 0;
             $status->to_status_label = $workflow->to_status_label ?? '';
