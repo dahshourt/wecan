@@ -33,11 +33,29 @@
         <td>{{ $cr->title }}</td>
         <td>{{ $cr->category->name ?? "" }}</td>
         <td>{{ $cr->Release->name ?? "" }}</td>
-        <td>
+        <td class="align-middle">
             @php
-                $statuses_names = $cr->RequestStatuses->pluck('status.name');
+                $status_name = $cr_status_name;
+                $status_class = 'blue';
+                $s_lower = strtolower($status_name);
+
+                if (str_contains($s_lower, 'reject')) {
+                    $status_class = 'danger';
+                } elseif (str_contains($s_lower, 'clos') || str_contains($s_lower, 'deliver')) {
+                    $status_class = 'success';
+                }
+
+                $custom_styles = '';
+                if ($status_class === 'danger') {
+                    $custom_styles = 'background-color: #EF4444; color: #ffffff !important; border-color: #EF4444 !important; box-shadow: 0px 3px 6px rgba(239, 68, 68, 0.4);';
+                } elseif ($status_class === 'success') {
+                    $custom_styles = 'background-color: #10B981; color: #ffffff !important; border-color: #10B981 !important; box-shadow: 0px 3px 6px rgba(16, 185, 129, 0.4);';
+                } else {
+                    $custom_styles = 'background-color: #3B82F6; color: #ffffff !important; border-color: #3B82F6 !important; box-shadow: 0px 3px 6px rgba(59, 130, 246, 0.4);';
+                }
             @endphp
-            {{ $statuses_names->implode(', ') }}
+            <span class="label label-inline label-pill font-weight-bold"
+                style="border-radius: 20px; padding: 0.6rem 1.1rem; height: auto; font-size: 0.8rem; letter-spacing: 0.5px; {{ $custom_styles }}">{{ $status_name }}</span>
         </td>
         <td>{{ $cr->requester_name ?? "" }}</td>
         <td>{{ $cr->requester_email ?? "" }}</td>
