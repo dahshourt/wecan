@@ -940,7 +940,7 @@ class ChangeRequestController extends Controller
     }
 
     public function showTopManagementForm(Request $request)
-    {
+    { 
         $this->authorize('Access Top Management CRS');
 
         // Get active tab from request or default to the first available workflow

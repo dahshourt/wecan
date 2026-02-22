@@ -155,6 +155,7 @@
                                                         <th>Creation Date</th>
                                                         <th>Requesting Department</th>
                                                         <th>Targeted System</th>
+                                                        
                                                         <th>Last Action Date</th>
                                                         <th>Action</th>
                                                     @else
@@ -177,6 +178,7 @@
                                                             <th> planned_end_uat_date</th>
                                                             <th> planned_start_smoke_test_date</th>
                                                             <th> planned_end_smoke_test_date</th>
+                                                            
                                                             {{--<th>#</th>--}}
                                                         @else
                                                             <th>#</th>
@@ -195,6 +197,7 @@
                                                             <th>End Test Time</th>
                                                             <th>Creation Date</th>
                                                             <th>Delivery/Updated Date</th>
+                                                            
                                                             {{--<th>#</th>--}}
                                                         @endif
                                                     @endif

@@ -1274,8 +1274,8 @@ SELECT
     req.cr_no,
     categry.`name` AS 'Category',
     stat.status_name AS 'Current Status',
-    'N\A' as 'On Behalf',
     req.requester_name,
+    'N\A' as 'On Behalf',
     CASE 
         WHEN req.hold = '0' THEN 'N/A'
         WHEN req.hold = '1' THEN 'YES'
@@ -1600,7 +1600,7 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
             $department = \App\Models\RequesterDepartment::find($department_id);
             if ($department) {
                 $query .= " AND req_csut_feld.custom_field_value = ?";
-                $bindings[] = $department->name;
+                $bindings[] = $department->id;
             }
         }
 
