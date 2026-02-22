@@ -52,6 +52,118 @@
                                 </div>
                                 <!--begin::Form-->
                                 <form id="advanced_search">
+                                @php
+                                    $activeFilters = [];
+                                    if (isset($fields) && count($fields) > 0) {
+                                        foreach ($fields as $field) {
+                                            if (!isset($field->custom_field)) continue;
+                                            $customField = $field->custom_field;
+                                            
+                                            $renderName = $customField->name;
+                                            $renderLabel = $customField->label;
+                                            $labelLower = isset($customField->label) ? strtolower(trim($customField->label)) : '';
+                                            
+                                            if (in_array($labelLower, ['less than date', 'greater than date'])) continue;
+                                            if ($labelLower === 'cr id' || strtolower($renderName) === 'cr_id') {
+                                                $renderName = 'cr_no';
+                                                $renderLabel = 'CR Number';
+                                            }
+                                            if (in_array($customField->name, ['created_at', 'updated_at'])) {
+                                                $renderLabel = $customField->name === 'created_at' ? 'Creation Date' : 'Updated Date';
+                                                $start = request()->query($customField->name . '_start');
+                                                $end = request()->query($customField->name . '_end');
+                                                if ($start || $end) {
+                                                    $val = [];
+                                                    if ($start) $val[] = "From: " . $start;
+                                                    if ($end) $val[] = "To: " . $end;
+                                                    $activeFilters[] = [
+                                                        'label' => $renderLabel,
+                                                        'value' => implode(' ', $val),
+                                                        'key' => $customField->name . '_range'
+                                                    ];
+                                                }
+                                            } elseif ($customField->type == 'select') {
+                                                $selectedIds = request()->query($renderName, []);
+                                                if (!is_array($selectedIds)) {
+                                                    $selectedIds = strlen((string) $selectedIds) ? explode(',', (string) $selectedIds) : [];
+                                                }
+                                                if (count($selectedIds) > 0) {
+                                                    $names = [];
+                                                    if ($customField->name == 'new_status_id') $names = collect($statuses ?? [])->whereIn('id', $selectedIds)->pluck('status_name')->toArray();
+                                                    elseif ($customField->name == 'priority_id') $names = collect($priorities ?? [])->whereIn('id', $selectedIds)->pluck('name')->toArray();
+                                                    elseif ($customField->name == 'application_id') $names = collect($applications ?? [])->whereIn('id', $selectedIds)->pluck('name')->toArray();
+                                                    elseif ($customField->name == 'parent_id') $names = collect($parents ?? [])->whereIn('id', $selectedIds)->pluck('name')->toArray();
+                                                    elseif ($customField->name == 'cr_type') $names = collect($cr_types ?? [])->whereIn('id', $selectedIds)->pluck('name')->toArray();
+                                                    elseif ($customField->name == 'category_id') $names = collect($categories ?? [])->whereIn('id', $selectedIds)->pluck('name')->toArray();
+                                                    elseif ($customField->name == 'unit_id') $names = collect($units ?? [])->whereIn('id', $selectedIds)->pluck('name')->toArray();
+                                                    elseif ($customField->name == 'workflow_type_id') $names = collect($workflows ?? [])->whereIn('id', $selectedIds)->pluck('name')->toArray();
+                                                    elseif ($customField->name == 'tester_id') $names = collect($testing_users ?? [])->whereIn('id', $selectedIds)->pluck('user_name')->toArray();
+                                                    elseif ($customField->name == 'designer_id') $names = collect($sa_users ?? [])->whereIn('id', $selectedIds)->pluck('user_name')->toArray();
+                                                    elseif ($customField->name == 'developer_id') $names = collect($developer_users ?? [])->whereIn('id', $selectedIds)->pluck('user_name')->toArray();
+                                                    
+                                                    if (count($names) > 0) {
+                                                        $activeFilters[] = [
+                                                            'label' => $renderLabel,
+                                                            'value' => implode(', ', $names),
+                                                            'key' => $renderName
+                                                        ];
+                                                    }
+                                                }
+                                            } elseif ($customField->type == 'checkbox') {
+                                                if (request()->query($renderName) == '1') {
+                                                    $activeFilters[] = [
+                                                        'label' => $renderLabel,
+                                                        'value' => 'Yes',
+                                                        'key' => $renderName
+                                                    ];
+                                                }
+                                            } else {
+                                                $val = request()->query($renderName);
+                                                if ($val !== null && $val !== '') {
+                                                    if ($renderName === 'cr_no') $val = "#" . $val;
+                                                    $activeFilters[] = [
+                                                        'label' => $renderLabel,
+                                                        'value' => $val,
+                                                        'key' => $renderName
+                                                    ];
+                                                }
+                                            }
+                                        }
+                                    }
+                                @endphp
+
+                                    @if(count($activeFilters) > 0)
+                                    <div class="card-body py-4 pb-0">
+                                        <div class="px-5 py-4 mb-4 rounded d-flex align-items-center justify-content-between flex-wrap" style="background-color: #F8F9FA !important; border: 1px solid #E4E6EF;">
+                                            <div class="d-flex flex-wrap align-items-center">
+                                                @foreach($activeFilters as $filter)
+                                                    <div class="label label-inline mr-3 mb-2 px-4 py-2 d-flex align-items-center" style="background-color: #F3E8FF; color: #5B21B6; border-radius: 6px; font-weight: 500; font-size: 13px; height: auto;">
+                                                        @if (strtolower($filter['label']) === 'status')
+                                                            <i class="flaticon2-medical-records text-purple mr-2" style="color: #7C3AED; font-size: 14px;"></i>
+                                                        @elseif (strtolower($filter['label']) === 'category')
+                                                            <i class="flaticon2-menu-4 text-purple mr-2" style="color: #7C3AED; font-size: 14px;"></i>
+                                                        @elseif (strtolower($filter['label']) === 'cr number' || strtolower($filter['label']) === 'cr no.')
+                                                            <i class="flaticon2-tag text-purple mr-2" style="color: #7C3AED; font-size: 14px;"></i>
+                                                        @else
+                                                            <i class="flaticon-settings text-purple mr-2" style="color: #7C3AED; font-size: 14px;"></i>
+                                                        @endif
+                                                        <span class="mr-1 text-muted">{{ $filter['label'] }} :</span>
+                                                        <span style="color: #4C1D95; font-weight: 600;">{{ $filter['value'] }}</span>
+                                                        <a href="javascript:;" class="ml-3 remove-filter" data-key="{{ $filter['key'] }}" style="color: #7C3AED;">
+                                                            <i class="ki ki-close icon-xs" style="color: #7C3AED;"></i>
+                                                        </a>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                            <div>
+                                                <a href="{{ route('advanced.search') }}" class="btn btn-sm font-weight-bolder text-hover-primary d-flex align-items-center" style="color: #7C3AED;">
+                                                    <i class="flaticon2-circular-arrow mr-2" style="color: #7C3AED;"></i> Clear Filters
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+
                                     <div id="advancedSearchCollapse" class="collapse show">
                                     @if (count($fields) > 0)
                                         <div class="card-body py-0">
@@ -627,6 +739,35 @@
                 clearDateValidation(['created_at_start','created_at_end','updated_at_start','updated_at_end']);
                 // Clear constraints
                 $('#created_at_start, #created_at_end, #updated_at_start, #updated_at_end').removeAttr('min').removeAttr('max');
+            });
+
+            // Remove filter chips
+            $(document).on('click', '.remove-filter', function(e) {
+                e.preventDefault();
+                var key = $(this).data('key');
+                if (key.endsWith('_range')) {
+                    var base = key.replace('_range', '');
+                    $('#' + base + '_start').val('');
+                    $('#' + base + '_end').val('');
+                } else {
+                    var $el = $('[name="' + key + '"], [name="' + key + '[]"], #' + key).first();
+                    if ($el.length) {
+                        if ($el.hasClass('select2') || $el.is('select')) {
+                            $el.val(null).trigger('change');
+                        } else if ($el.attr('type') === 'checkbox') {
+                            $el.prop('checked', false);
+                        } else {
+                            $el.val('');
+                        }
+                    }
+                }
+                $('#advanced_search').submit();
+            });
+
+            $(document).on('click', '#clear_all_filters_btn', function(e) {
+                e.preventDefault();
+                $('#reset_advanced_search').click();
+                $('#advanced_search').submit();
             });
         });
     </script>
