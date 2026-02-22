@@ -69,10 +69,40 @@ class ChangeRequestValidationService
         $updateService->mirrorCrStatusToTechStreams($id, (int) $workflow->workflowstatus[0]->to_status_id, null, 'actor');
 
 
-        $this->processTechnicalTeamStatus($technicalCr, $oldStatusData, $workflow, $technicalDefaultGroup, $request);
+        $result = $this->processTechnicalTeamStatus($technicalCr, $oldStatusData, $workflow, $technicalDefaultGroup, $request);
+
+        try {
+            $changeRequest = Change_request::find($id);
+            $uatPromoService = new \App\Services\ChangeRequest\SpecialFlows\UatPromoFlowService();
+            if ($workflow && $workflow->workflowstatus->isNotEmpty()) {
+                $newStatusId = $workflow->workflowstatus->first()->to_status_id;
+            }
+            $newStatusName = $uatPromoService->getStatusNameById($newStatusId);
+            $pendingUatPromoStatus = config('change_request.uat_promo_flow.statuses.pending_uat_promo');
+
+            $isTargetStatusMatch = ($newStatusName === $pendingUatPromoStatus);
+            $newActiveStatus = $uatPromoService->handlePendingUatuActivation($changeRequest->id, $statusData, $changeRequest->workflow_type_id);
+            if ($isTargetStatusMatch) {
+                $result = true;
+            }
+
+            if ($newActiveStatus !== null) {
+                $this->active_flag = $newActiveStatus;
+                Log::info('Pending UAT (promo) active status updated by special flow', [
+                    'cr_id' => $changeRequest->id,
+                    'new_active' => $newActiveStatus
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Error in UatPromoFlowService', [
+                'cr_id' => $changeRequest->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         //dd($cr, $statusData, $request, $this->active_flag);
         event(new ChangeRequestStatusUpdated($cr, $statusData, $request, $this->active_flag));
-        return true;
+        return $result;
     }
 
     /**
@@ -230,7 +260,6 @@ class ChangeRequestValidationService
         $promo_unparked_ids = array_values(config('change_request.promo_unparked_ids', []));
 
         $this->updateCurrentStatusByGroup($technicalCr->cr_id, $oldStatusData->toArray(), $group);
-
         if (in_array($toStatusData->workflowstatus[0]->to_status->id, $parkedIds, true)) {
             $checkWorkflowType = NewWorkFlow::find($request->new_status_id)->workflow_type;
 
@@ -249,7 +278,6 @@ class ChangeRequestValidationService
 
                 $countAllTeams = $technicalCr->technical_cr_team->count();
                 $countApprovedTeams = $technicalCr->technical_cr_team()->whereRaw('CAST(status AS CHAR) = ?', ['1'])->count();
-
                 if ($countAllTeams > $countApprovedTeams) {
                     return true; // Still waiting for other teams
                 }
@@ -884,6 +912,7 @@ class ChangeRequestValidationService
             // ->whereIN('active',self::$ACTIVE_STATUS_ARRAY)
             ->active()
             ->first();
+
         if (!$currentStatus) {
             if (isset($currentStatus->old_status_id)) {
                 Log::warning('Current status not found for update', [
