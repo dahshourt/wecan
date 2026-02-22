@@ -46,7 +46,7 @@
                                     </h3>
                                     <div class="card-toolbar">
                                         <a href="#" id="advancedSearchToggle" class="btn btn-icon btn-sm btn-light-primary mr-1" data-toggle="collapse" data-target="#advancedSearchCollapse" aria-expanded="true">
-                                            <i class="ki ki-arrow-up icon-nm"></i>
+                                            <i id="advancedSearchToggleIcon" class="ki ki-arrow-up icon-nm"></i>
                                         </a>
                                     </div>
                                 </div>
@@ -282,7 +282,7 @@
                                                 </div>
 
                                                 <div class="card-footer border-0 p-5 d-flex justify-content-end bg-white">
-                                                    <button type="button" id="reset_advanced_search" class="btn btn-secondary font-weight-bold mr-3 px-6 h-40px">
+                                                    <button type="button" id="reset_advanced_search" class="btn btn-danger font-weight-bold mr-3 px-6 h-40px">
                                                         <i class="la la-trash"></i> Clear
                                                     </button>
                                                     <button type="submit" class="btn btn-primary font-weight-bold px-8 h-40px shadow-sm">

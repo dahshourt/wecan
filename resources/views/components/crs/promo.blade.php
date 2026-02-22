@@ -25,7 +25,6 @@
         </thead>
         <tbody>
         @if($collection)
-
             @foreach ($collection as $item)
                 @php
 
@@ -36,8 +35,8 @@
                     }
                     $current_status = $item->getCurrentStatus()->status;
                     $view_technical_team_flag = $current_status->view_technical_team_flag;
-                    $assigned_technical_teams = $item->technical_Cr? $item->technical_Cr->technical_cr_team->pluck('group_id')->toArray() : [];
-                    $check_if_status_active = $item->technical_Cr?$item->technical_Cr->technical_cr_team->where('group_id',$default_group)->where('status','0')->count() : 0;
+                    $assigned_technical_teams = $item->technicalCr? $item->technicalCr->technicalCRTeams->pluck('group_id')->toArray() : [];
+                    $check_if_status_active = $item->technicalCr?$item->technicalCr->technicalCRTeams->where('group_id',$default_group)->where('status','0')->count() : 0;
                 @endphp
 
                 @if(!$view_technical_team_flag || ($view_technical_team_flag && in_array($default_group, $assigned_technical_teams) && $check_if_status_active))
@@ -84,15 +83,9 @@
                             <td></td>
                         @endif
                     </tr>
-                @endif
 
-
-                @php
-                    $detailsColspan = 12;
-                    $statuses = $item->getallCurrentStatus();
-                @endphp
-                <tr class="cr-details-row" data-cr-id="{{ $item->id }}" style="display:none;">
-                    <td colspan="{{ $detailsColspan }}" class="p-0">
+                    <tr class="cr-details-row" data-cr-id="{{ $item->id }}" style="display:none;">
+                    <td colspan="12" class="p-0">
                         <div style="background: #f8f9fb; padding: 1.25rem 1rem; border-top: 2px solid #e4e6ef;">
 
                             <table class="table table-hover mb-0"
@@ -114,7 +107,7 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-                                @forelse($statuses as $status)
+                                @forelse($item->requestStatuses as $status)
                                     <tr style="border-bottom: 1px solid #f3f4f6; transition: all 0.2s;">
                                         <td class="align-middle" style="padding: 1rem 1.25rem;">
                                 <span class="font-weight-bold text-dark" style="font-size: 0.9rem;">
@@ -174,6 +167,7 @@
                         </div>
                     </td>
                 </tr>
+                @endif
 
             @endforeach
         @else
@@ -183,55 +177,4 @@
         @endif
         </tbody>
     </table>
-    <!--end: Datatable-->
 </div>
-
-<!-- Description Modal -->
-<div class="modal fade" id="descriptionModal" tabindex="-1" role="dialog" aria-labelledby="descriptionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="descriptionModalLabel">Full Description</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body" style="white-space: pre-wrap;"></div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light-primary font-weight-bold" data-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-@push('script')
-<script>
-$(document).on('click', '.description-preview', function (event) {
-    event.preventDefault();
-    let fullDescription = $(this).attr('data-description') || '';
-    try {
-        // Decode HTML entities and parse JSON
-        fullDescription = $('<div>').html(fullDescription).text();
-        fullDescription = JSON.parse(fullDescription);
-    } catch (e) {
-        // If parsing fails, use the raw value
-        console.warn('Failed to parse description JSON:', e);
-    }
-    $('#descriptionModal .modal-body').text(fullDescription);
-    $('#descriptionModal').modal('show');
-});
-</script>
-@endpush
-
-@push('css')
-<style>
-.description-preview {
-    cursor: pointer;
-    transition: color 0.2s;
-}
-
-.description-preview:hover {
-    color: #0056b3 !important;
-}
-</style>
-@endpush

@@ -483,12 +483,13 @@ class NotificationService
         
         // Get QC email (RPA) and ticketing dev from config
         $qcEmail = config('constants.mails.qc_mail', '');
+        $serviceAccount = config('services.ews.username', '');
         $ticketingDev = config('constants.mails.ticketing_dev_mail', '');
         $replyToEmail = config('mail.from.address', '');
         $subject = "Re: CR #{$cr->cr_no} - Awaiting Your Approval";
         
-        $approveLink = "mailto:{$qcEmail}?subject=" . rawurlencode($subject) . "&cc={$replyToEmail};{$ticketingDev}&body=approved";
-        $rejectLink = "mailto:{$qcEmail}?subject=" . rawurlencode($subject) . "&cc={$replyToEmail};{$ticketingDev}&body=rejected";
+        $approveLink = "mailto:{$replyToEmail}?subject=" . rawurlencode($subject) . "&cc={$ticketingDev}&body=approved";
+        $rejectLink = "mailto:{$replyToEmail}?subject=" . rawurlencode($subject) . "&cc={$ticketingDev}&body=rejected";
         
         // Get old and new status names for status update events
         $oldStatus = '';

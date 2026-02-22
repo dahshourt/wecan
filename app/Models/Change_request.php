@@ -114,7 +114,7 @@ class Change_request extends Model
                     ->pluck('cr_id')
                     ->toArray();
 
-                if (!empty($dependentCrIds)) {
+                if (! empty($dependentCrIds)) {
                     $query->whereNotIn('id', $dependentCrIds);
                 }
 
@@ -283,8 +283,6 @@ class Change_request extends Model
         return $this->hasOne(TechnicalCr::class, 'cr_id', 'id')->orderBy('id', 'DESC');
     }
 
-
-
     /**
      * Get current group statuses through status relationship.
      */
@@ -408,7 +406,7 @@ class Change_request extends Model
     {
         $releaseDate = $this->release_delivery_date;
 
-        return $releaseDate && $releaseDate->isPast() && !$this->isCompleted();
+        return $releaseDate && $releaseDate->isPast() && ! $this->isCompleted();
     }
 
     /**
@@ -489,32 +487,32 @@ class Change_request extends Model
     public function scopeFilterByBasicFields(Builder $query): Builder
     {
         return $query
-            ->when(request()->query('cr_no'), fn(Builder $q, $value) => $q->where('cr_no', $value))
-            ->when(request()->query('title'), fn(Builder $q, $value) => $q->where('title', 'like', "%{$value}%"));
+            ->when(request()->query('cr_no'), fn (Builder $q, $value) => $q->where('cr_no', $value))
+            ->when(request()->query('title'), fn (Builder $q, $value) => $q->where('title', 'like', "%{$value}%"));
     }
 
     public function scopeFilterByRelations(Builder $query): Builder
     {
         return $query
-            ->when(request()->query('application_id'), fn(Builder $q, $value) => $q->whereIn('application_id', (array) $value))
-            ->when(request()->query('tester_id'), fn(Builder $q, $value) => $q->whereIn('tester_id', (array) $value))
-            ->when(request()->query('developer_id'), fn(Builder $q, $value) => $q->whereIn('developer_id', (array) $value))
-            ->when(request()->query('designer_id'), fn(Builder $q, $value) => $q->whereIn('designer_id', (array) $value))
-            ->when(request()->query('category_id'), fn(Builder $q, $value) => $q->whereIn('category_id', (array) $value))
-            ->when(request()->query('priority_id'), fn(Builder $q, $value) => $q->whereIn('priority_id', (array) $value))
-            ->when(request()->query('unit_id'), fn(Builder $q, $value) => $q->whereIn('unit_id', (array) $value))
-            ->when(request()->query('division_manager'), fn(Builder $q, $value) => $q->where('division_manager', $value))
-            ->when(request()->query('workflow_type_id'), fn(Builder $q, $value) => $q->whereIn('workflow_type_id', (array) $value))
-            ->when(request()->query('requester_name'), fn(Builder $q, $value) => $q->where('requester_name', 'like', "%{$value}%"));
+            ->when(request()->query('application_id'), fn (Builder $q, $value) => $q->whereIn('application_id', (array) $value))
+            ->when(request()->query('tester_id'), fn (Builder $q, $value) => $q->whereIn('tester_id', (array) $value))
+            ->when(request()->query('developer_id'), fn (Builder $q, $value) => $q->whereIn('developer_id', (array) $value))
+            ->when(request()->query('designer_id'), fn (Builder $q, $value) => $q->whereIn('designer_id', (array) $value))
+            ->when(request()->query('category_id'), fn (Builder $q, $value) => $q->whereIn('category_id', (array) $value))
+            ->when(request()->query('priority_id'), fn (Builder $q, $value) => $q->whereIn('priority_id', (array) $value))
+            ->when(request()->query('unit_id'), fn (Builder $q, $value) => $q->whereIn('unit_id', (array) $value))
+            ->when(request()->query('division_manager'), fn (Builder $q, $value) => $q->where('division_manager', $value))
+            ->when(request()->query('workflow_type_id'), fn (Builder $q, $value) => $q->whereIn('workflow_type_id', (array) $value))
+            ->when(request()->query('requester_name'), fn (Builder $q, $value) => $q->where('requester_name', 'like', "%{$value}%"));
     }
 
     public function scopeFilterByDates(Builder $query): Builder
     {
         return $query
-            ->when(request()->query('created_at_start'), fn(Builder $q, $value) => $q->whereDate('created_at', '>=', $value))
-            ->when(request()->query('created_at_end'), fn(Builder $q, $value) => $q->whereDate('created_at', '<=', $value))
-            ->when(request()->query('updated_at_start'), fn(Builder $q, $value) => $q->whereDate('updated_at', '>=', $value))
-            ->when(request()->query('updated_at_end'), fn(Builder $q, $value) => $q->whereDate('updated_at', '<=', $value));
+            ->when(request()->query('created_at_start'), fn (Builder $q, $value) => $q->whereDate('created_at', '>=', $value))
+            ->when(request()->query('created_at_end'), fn (Builder $q, $value) => $q->whereDate('created_at', '<=', $value))
+            ->when(request()->query('updated_at_start'), fn (Builder $q, $value) => $q->whereDate('updated_at', '>=', $value))
+            ->when(request()->query('updated_at_end'), fn (Builder $q, $value) => $q->whereDate('updated_at', '<=', $value));
     }
 
     public function scopeFilterByStatus(Builder $query): Builder
@@ -674,12 +672,10 @@ class Change_request extends Model
             $group = $this->getCurrentGroupId();
             $technical_cr_team_status = null;
 
-            $TechnicalCr = TechnicalCr::where('cr_id', $this->id)
-                ->where('status', '0')
-                ->first();
+            $TechnicalCr = $this->technicalCr;
 
-            if ($TechnicalCr) {
-                $technical_cr_team_status = $TechnicalCr->technical_cr_team()
+            if ($TechnicalCr && $TechnicalCr->status == '0') {
+                $technical_cr_team_status = $TechnicalCr->technicalCRTeams
                     ->where('group_id', $group)
                     ->where('status', '0')
                     ->first();
@@ -709,6 +705,21 @@ class Change_request extends Model
         }
     }
 
+    public function scopeWithAllCRStatusesInfo(Builder $query): Builder
+    {
+        return $query->with(['requestStatuses' => function (HasMany $query) {
+            $query->with([
+                'currentGroup',
+                'technical_group',
+                'referenceGroup',
+                'previousGroup',
+                'status' => function ($query) {
+                    $query->with('viewByGroupStatuses.group');
+                },
+            ]);
+        }]);
+    }
+
     public function getAllCurrentStatus()
     {
         $statuses = Change_request_statuse::where('cr_id', $this->id)
@@ -720,7 +731,7 @@ class Change_request extends Model
                 'previousGroup',
                 'status' => function ($query) {
                     $query->with('viewByGroupStatuses.group');
-                }
+                },
             ])
             ->get();
 
@@ -734,7 +745,7 @@ class Change_request extends Model
     {
         $currentStatus = $this->getCurrentStatus();
 
-        if (!$currentStatus) {
+        if (! $currentStatus) {
             return false;
         }
 
@@ -771,7 +782,7 @@ class Change_request extends Model
      */
     public function needsApproval(): bool
     {
-        return !$this->approval && $this->isInApprovalPhase();
+        return ! $this->approval && $this->isInApprovalPhase();
     }
 
     /**
@@ -789,13 +800,13 @@ class Change_request extends Model
      */
     public function hasUncompletedDependencies(): bool
     {
-        if (!$this->depend_cr_id) {
+        if (! $this->depend_cr_id) {
             return false;
         }
 
         $dependentCr = self::find($this->depend_cr_id);
 
-        return $dependentCr && !$dependentCr->isCompleted();
+        return $dependentCr && ! $dependentCr->isCompleted();
     }
 
     /**
@@ -936,9 +947,9 @@ class Change_request extends Model
             'id',                            // PK on change_requests
             'custom_field_value'             // FK on change_request_custom_fields → requester_departments.id
         )->where(
-                'change_request_custom_fields.custom_field_name',
-                'requester_department'
-            );
+            'change_request_custom_fields.custom_field_name',
+            'requester_department'
+        );
     }
 
     public function parentCR(): BelongsTo
@@ -1027,13 +1038,13 @@ class Change_request extends Model
     public function shouldShowToUser($defaultGroup): bool
     {
         $currentStatus = $this->getCurrentStatus();
-        if (!$currentStatus || !$currentStatus->status) {
+        if (! $currentStatus || ! $currentStatus->status) {
             return false;
         }
 
         $viewTechnicalTeamFlag = $currentStatus->status->view_technical_team_flag;
 
-        if (!$viewTechnicalTeamFlag) {
+        if (! $viewTechnicalTeamFlag) {
             return true;
         }
 
@@ -1062,7 +1073,7 @@ class Change_request extends Model
     public function getCrTypeNameAttribute(): string
     {
         static $crTypes;
-        if (!$crTypes) {
+        if (! $crTypes) {
             $crTypes = \App\Models\CrType::pluck('name', 'id');
         }
 
@@ -1175,7 +1186,7 @@ class Change_request extends Model
 
         $viewStatuses = $this->getViewableStatuses();
 
-        $status = Change_request_statuse::where('cr_id', $this->id)
+        $status = $this->requestStatuses->where('cr_id', $this->id)
             ->whereIn('new_status_id', $viewStatuses)
             ->where('active', '1') // Ensure we only look for active statuses if that was the intent
             ->first();
@@ -1185,7 +1196,7 @@ class Change_request extends Model
         }
 
         // Fallback 1: Active status
-        $status = Change_request_statuse::where('cr_id', $this->id)
+        $status = $this->requestStatuses->where('cr_id', $this->id)
             ->where('active', '1')
             ->first();
 
@@ -1194,18 +1205,25 @@ class Change_request extends Model
         }
 
         // Fallback 2: Latest status
-        return Change_request_statuse::where('cr_id', $this->id)
-            ->orderBy('id', 'desc')
+        return $this->requestStatuses->where('cr_id', $this->id)
+            ->sortByDesc('id')
             ->first();
     }
 
     private function getViewableStatuses(): array
     {
         $group = $this->getCurrentGroupId();
-        $viewStatuses = GroupStatuses::where('group_id', $group)
-            ->where('type', 2)
-            ->pluck('status_id')
-            ->toArray();
+
+        if (! app()->bound("group_{$group}_statuses")) {
+            $group_statuses = GroupStatuses::where('group_id', $group)
+                ->where('type', 2)
+                ->pluck('status_id')
+                ->toArray();
+
+            app()->instance("group_{$group}_statuses", $group_statuses);
+        }
+
+        $viewStatuses = app("group_{$group}_statuses");
 
         $technicalTeamStatus = $this->getTechnicalTeamCurrentStatus();
 
@@ -1237,14 +1255,23 @@ class Change_request extends Model
      */
     private function attachWorkflowInfo($status)
     {
-        if (!$status) {
+        if (! $status) {
             return null;
         }
 
         try {
-            $workflow = NewWorkFlow::where('from_status_id', $status->old_status_id)
-                ->where('type_id', $this->workflow_type_id)
-                ->first();
+            // Try to use preloaded workflows first
+            $preloadedWorkflows = app()->has('preloaded_workflows') ? app('preloaded_workflows') : null;
+            
+            if ($preloadedWorkflows) {
+                $key = $this->workflow_type_id . '_' . $status->old_status_id;
+                $workflow = $preloadedWorkflows->get($key)?->first();
+            } else {
+                // Fallback to database query if not preloaded
+                $workflow = NewWorkFlow::where('from_status_id', $status->old_status_id)
+                    ->where('type_id', $this->workflow_type_id)
+                    ->first();
+            }
 
             $status->same_time = $workflow->same_time ?? 0;
             $status->to_status_label = $workflow->to_status_label ?? '';
@@ -1261,14 +1288,23 @@ class Change_request extends Model
 
     private function attachWorkflowInfoById($status)
     {
-        if (!$status) {
+        if (! $status) {
             return null;
         }
 
         try {
-            $workflow = NewWorkFlow::where('from_status_id', $status->new_status_id)
-                ->where('type_id', $this->workflow_type_id)
-                ->first();
+            // Try to use preloaded workflows first
+            $preloadedWorkflows = app()->has('preloaded_workflows') ? app('preloaded_workflows') : null;
+            
+            if ($preloadedWorkflows) {
+                $key = $this->workflow_type_id . '_' . $status->new_status_id;
+                $workflow = $preloadedWorkflows->get($key)?->first();
+            } else {
+                // Fallback to database query if not preloaded
+                $workflow = NewWorkFlow::where('from_status_id', $status->new_status_id)
+                    ->where('type_id', $this->workflow_type_id)
+                    ->first();
+            }
 
             $status->same_time = $workflow->same_time ?? 0;
             $status->to_status_label = $workflow->to_status_label ?? '';
@@ -1290,7 +1326,7 @@ class Change_request extends Model
     {
         $currentStatus = $this->getCurrentStatus();
 
-        if (!$currentStatus) {
+        if (! $currentStatus) {
             return false;
         }
 

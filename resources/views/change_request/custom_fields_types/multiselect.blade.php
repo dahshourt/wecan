@@ -3,7 +3,7 @@
     $fieldLabel = $item->CustomField->label;
     $isRequired = isset($item->validation_type_id) && $item->validation_type_id == 1;
     $isEnabled = isset($item->enable) && $item->enable == 1;
-    $inputType = $fieldName === 'division_manager' ? 'email' : 'text';
+    $inputType = in_array($fieldName, ['division_manager', 'mds_approvers']) ? 'email' : 'text';
     $inputValue = isset($cr) ? old($fieldName, $custom_field_value ?? '') : old($fieldName);
 @endphp
 

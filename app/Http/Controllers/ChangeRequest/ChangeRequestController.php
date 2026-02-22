@@ -17,6 +17,7 @@ use App\Http\Resources\MyCRSResource;
 use App\Models\Change_request;
 use App\Models\Change_request_statuse;
 use App\Models\Group;
+use App\Models\NewWorkFlow;
 use App\Models\WorkFlowType;
 use App\Services\ChangeRequest\ChangeRequestAttachmentService;
 use App\Services\ChangeRequest\ChangeRequestSchedulingService;
@@ -83,7 +84,7 @@ class ChangeRequestController extends Controller
             $this->authorize('List change requests');
 
             $active_work_flows = app(Workflow_type_repository::class)->getWorkflowsForListCRs();
-            $active_workflows_type_ids = $active_work_flows->pluck('id');
+            $active_workflows_type_ids = $active_work_flows->pluck('id')->toArray();
 
             $user_groups = auth()->user()->groups()->select(['groups.id', 'groups.title'])->get();
             $user_groups_ids = $user_groups->pluck('id');
@@ -98,10 +99,11 @@ class ChangeRequestController extends Controller
                     $key = 'all';
                 }
 
-                $crs_by_user_groups_by_workflow[$key] = $this->changerequest->getAllForLisCRs($active_workflows_type_ids->toArray(), $user_group_id);
+                $crs_by_user_groups_by_workflow[$key] = $this->changerequest->getAllForLisCRs($active_workflows_type_ids, $user_group_id);
             }
 
-
+            // Preload all workflow data to prevent N+1 queries
+            $this->preloadWorkflowData($active_workflows_type_ids);
 
             return view("{$this->view}.index", compact('crs_by_user_groups_by_workflow', 'active_work_flows', 'user_groups'));
         } catch (AuthorizationException $e) {
@@ -1450,5 +1452,20 @@ class ChangeRequestController extends Controller
         // Get the first status for the workflow type
         $workflowType = WorkFlowType::find($workflowTypeId);
         return $workflowType ? $workflowType->statuses()->first()->id : 1;
+    }
+
+    /**
+     * Preload all workflow data to prevent N+1 queries when rendering the view.
+     * This caches workflows by type_id and from_status_id for quick lookup.
+     */
+    private function preloadWorkflowData(array $workflowTypeIds): void
+    {
+        $workflows = NewWorkFlow::whereIn('type_id', $workflowTypeIds)
+            ->get()
+            ->groupBy(function ($workflow) {
+                return $workflow->type_id . '_' . $workflow->from_status_id;
+            });
+
+        app()->instance('preloaded_workflows', $workflows);
     }
 }

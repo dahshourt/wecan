@@ -5,8 +5,10 @@ namespace App\Services\ChangeRequest\SpecialFlows;
 use App\Models\Change_request_statuse as ChangeRequestStatus;
 use App\Models\Status;
 use App\Models\NewWorkFlow;
+use App\Models\Change_request;
 use Illuminate\Support\Facades\Log;
-
+use App\Http\Repository\ChangeRequest\ChangeRequestStatusRepository;
+use Auth;
 class UatPromoFlowService
 {
     private const WORKFLOW_TYPE_PROMO = 9;
@@ -180,7 +182,8 @@ class UatPromoFlowService
 
 
         $parkedIds = array_values(config('change_request.promo_parked_status_ids', []));
-        $active = 0;
+        $active = '0';
+
         if (in_array($newStatusId, $parkedIds, true)) {
 
             $depend_active_count = ChangeRequestStatus::where('cr_id', $crId)
@@ -199,14 +202,44 @@ class UatPromoFlowService
             ->where('new_status_id', $newStatusId)
             ->orderBy('id', 'desc')->limit(1)
             ->update(['active' => $active]);
+        if (!$affected && $active == '1') {
+            $previous_group_id = session('current_group') ?: (auth()->check() ? auth()->user()->default_group : null);
 
+            $newStatusRow = Status::find($newStatusId);
+            $changeRequest = Change_request::find($crId);
+            $current_group_id = $newStatusRow->GetViewGroup($changeRequest->application_id);
+            if ($current_group_id) {
+                $current_group_id = $current_group_id->id;
+            } else {
+                $current_group_id = optional($newStatusRow->group_statuses)
+                    ->where('type', '2')
+                    ->pluck('group_id')
+                    ->first();
+            }
+            $statusRepository = new ChangeRequestStatusRepository();
+            $payload = $this->buildStatusData(
+                $crId,
+                $oldStatusId,
+                $newStatusId,
+                null,
+                $currentStatus->reference_group_id ?? 8,
+                $previous_group_id,
+                $current_group_id,
+                Auth::id(),
+                $active
+            );
+
+
+            $statusRepository->create($payload);
+
+        }
         Log::info('UatPromoFlowService: Status update result', [
             'cr_id' => $crId,
             'affected_rows' => $affected
         ]);
     }
 
-    private function getStatusNameById($statusId)
+    public function getStatusNameById($statusId)
     {
         $status = Status::find($statusId);
         return $status ? $status->status_name : null;
@@ -217,4 +250,33 @@ class UatPromoFlowService
         $status = Status::where('status_name', $statusName)->first();
         return $status ? $status->id : null;
     }
+
+    private function buildStatusData(
+        int $changeRequestId,
+        int $oldStatusId,
+        int $newStatusId,
+        ?int $group_id,
+        ?int $reference_group_id,
+        ?int $previous_group_id,
+        ?int $current_group_id,
+        int $userId,
+        string $active
+    ): array {
+        $status = Status::find($newStatusId);
+        $sla = $status ? (int) $status->sla : 0;
+
+        return [
+            'cr_id' => $changeRequestId,
+            'old_status_id' => $oldStatusId,
+            'new_status_id' => $newStatusId,
+            'group_id' => $group_id,
+            'reference_group_id' => $reference_group_id,
+            'previous_group_id' => $previous_group_id,
+            'current_group_id' => $current_group_id,
+            'user_id' => $userId,
+            'sla' => $sla,
+            'active' => $active, // '0' | '1' | '2'
+        ];
+    }
+
 }

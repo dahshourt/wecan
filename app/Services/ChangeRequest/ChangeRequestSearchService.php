@@ -102,9 +102,10 @@ class ChangeRequestSearchService
                     $query->orWhereRelation('parentCR', 'workflow_type_id', $workflow_type_id);
                 });
         })
+            ->withAllCRStatusesInfo()
             ->with(
                 [
-                    'RequestStatuses.status',
+                    'technicalCr.technicalCRTeams',
                     ...$work_flow_relations,
                 ]
             );

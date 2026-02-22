@@ -534,11 +534,11 @@ class ChangeRequestStatusService
             // ════════════════════════════════════════════════════════════════
 
             // Get the workflow ID dynamically for "Need Update" transition
-           $needUpdateWorkflowIds = $this->getAllNeedUpdateWorkflowIds($changeRequestId);
+            $needUpdateWorkflowIds = $this->getAllNeedUpdateWorkflowIds($changeRequestId);
 
 
-           if (isset($statusData['new_status_id']) && !empty($needUpdateWorkflowIds) && in_array($statusData['new_status_id'], $needUpdateWorkflowIds)) {
-    Log::info('Need Update detected (workflow ID ' . $statusData['new_status_id'] . ' in [' . implode(',', $needUpdateWorkflowIds) . ']) - bypassing normal workflow', [
+            if (isset($statusData['new_status_id']) && !empty($needUpdateWorkflowIds) && in_array($statusData['new_status_id'], $needUpdateWorkflowIds)) {
+                Log::info('Need Update detected (workflow ID ' . $statusData['new_status_id'] . ' in [' . implode(',', $needUpdateWorkflowIds) . ']) - bypassing normal workflow', [
                     'cr_id' => $changeRequestId,
                     'status_id' => $statusData['new_status_id']
                 ]);
@@ -584,6 +584,45 @@ class ChangeRequestStatusService
                 ]);
 
                 return true; // ⭐ EXIT EARLY - don't run normal workflow
+            }
+             try {
+                $iotService = new \App\Services\ChangeRequest\SpecialFlows\IotTcsFlowService();
+
+                if ($iotService->isIotTcsTransition($changeRequestId, $statusData)) {
+                    Log::info('IOT TCs parallel workflow transition detected - delegating to IotTcsFlowService', [
+                        'cr_id'         => $changeRequestId,
+                        'old_status_id' => $statusData['old_status_id'],
+                        'new_status_id' => $statusData['new_status_id'],
+                    ]);
+
+                    $changeRequest = $this->getChangeRequest($changeRequestId);
+
+                    // Build context for group/user resolution
+                    $context = [
+                        'user_id'          => Auth::id() ?? null,
+                        'application_id'   => $changeRequest->application_id ?? null,
+                    ];
+
+                    $activeFlag = $iotService->handleIotTcsTransition($changeRequestId, $statusData, $context);
+                    $this->active_flag = $activeFlag;
+
+                    DB::commit();
+
+                    Log::info('IOT TCs transition completed successfully', [
+                        'cr_id'       => $changeRequestId,
+                        'active_flag' => $activeFlag,
+                    ]);
+
+                    event(new ChangeRequestStatusUpdated($changeRequest, $statusData, $request, $this->active_flag));
+
+                    return true; // ⭐ EXIT EARLY – normal workflow must NOT run
+                }
+            } catch (\Throwable $e) {
+                Log::error('Error in IotTcsFlowService check', [
+                    'cr_id' => $changeRequestId,
+                    'error' => $e->getMessage(),
+                ]);
+                // Fall through to normal workflow on service error
             }
 
             // ════════════════════════════════════════════════════════════════
@@ -1135,9 +1174,9 @@ class ChangeRequestStatusService
         $oldStatusId = $request['old_status_id'] ?? $request->old_status_id ?? null;
         $newWorkflowId = $request['new_workflow_id'] ?? null;
 
-        if (!$newStatusId || !$oldStatusId) {
-            throw new InvalidArgumentException('Missing required status IDs');
-        }
+        // if (!$newStatusId || !$oldStatusId) {
+        //     throw new InvalidArgumentException('Missing required status IDs');
+        // }
 
         return [
             'new_status_id' => $newStatusId,
@@ -1571,7 +1610,7 @@ class ChangeRequestStatusService
         // ✨ SPECIAL CASE: "Need Update" from Workflow B statuses
         // Handle transitions from Workflow B back to "Pending Create Agreed Scope"
         // ════════════════════════════════════════════════════════════
-        
+
         $workflowBStatuses = [
             'Pending Agreed Scope Approval-SA',
             'Pending Agreed Scope Approval-Vendor',
@@ -1625,7 +1664,7 @@ class ChangeRequestStatusService
         // ════════════════════════════════════════════════════════════
         // Check if we're transitioning from "Pending Create Agreed Scope"
         // ════════════════════════════════════════════════════════════
-        
+
         if ($oldStatus && $oldStatus->status_name == 'Pending Create Agreed Scope') {
 
             Log::info('Transitioning FROM Pending Create Agreed Scope', [
