@@ -300,7 +300,10 @@ class ChangeRequestStatusService
     }
     private function activatePendingMergeStatus(int $crId, array $statusData): void
     {
-        $mergePointStatusId = 250;
+
+         $mergeStatusName = 'Pending Update Agreed Requirements';
+     $mergeStatus = Status::where('status_name', $mergeStatusName)->first();
+        $mergePointStatusId = $mergeStatus->id;
 
         // Only if we just reached the merge point
         if ($statusData['new_status_id'] == $mergePointStatusId) {
@@ -1903,6 +1906,18 @@ class ChangeRequestStatusService
      * Determine if new status should be active
      */
 
+   /**
+     * Determine if new status should be active
+     *
+     * Priority order:
+     *  1. Workflow A origin ("Request Draft CR Doc") → always active
+     *  2. Merge point: "Pending SA HL Feedback"
+     *     – All 3 parallel approval statuses (SA / Vendor / Business) must
+     *       arrive here before the last one is activated.
+     *  3. Merge point: "Pending Update Agreed Requirements"
+     *     – Both Workflow A + B must arrive before the last one is activated.
+     *  4. Normal / fallback logic (workflow_type_id = 9 or generic).
+     */
     private function determineActiveStatus(
         int $changeRequestId,
         $workflowStatus,
@@ -1912,39 +1927,99 @@ class ChangeRequestStatusService
         ChangeRequest $changeRequest
     ): string {
 
-        // Priority 1: Workflow A
+        // ════════════════════════════════════════════════════════════════════
+        // Priority 1: Workflow A origin — always active immediately
+        // ════════════════════════════════════════════════════════════════════
         $fromStatus = Status::find($oldStatusId);
         if ($fromStatus && $fromStatus->status_name === 'Request Draft CR Doc') {
+            Log::info('determineActiveStatus: Workflow A origin → active=1', [
+                'cr_id'         => $changeRequestId,
+                'old_status'    => $fromStatus->status_name,
+            ]);
             return self::ACTIVE_STATUS;
         }
 
-        // ════════════════════════════════════════════════════════════
-        // Priority 2: MERGE POINT CHECK
-        // ✨ MODIFIED: Only apply if CR used parallel workflows
-        // ════════════════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════════════════════
+        // Priority 2: MERGE POINT — "Pending SA HL Feedback"
+        //
+        // The three parallel approval statuses:
+        //   • Pending Agreed Scope Approval-SA
+        //   • Pending Agreed Scope Approval-Vendor
+        //   • Pending Agreed Scope Approval-Business
+        // all converge here. Only the LAST arrival should be active = 1.
+        // ════════════════════════════════════════════════════════════════════
+        $pendingSaHlStatus = Status::where('status_name', 'Pending SA HL Feedback')->first();
 
-        $mergePointStatus = Status::where('status_name', 'Pending Update Agreed Requirements')->first();
-        $mergePointStatusId = $mergePointStatus ? $mergePointStatus->id : null;
+        if ($pendingSaHlStatus && (int) $workflowStatus->to_status_id === (int) $pendingSaHlStatus->id) {
 
-        if ($workflowStatus->to_status_id == $mergePointStatusId) {
+            // Collect the three parallel approval status IDs (already initialised in __construct)
+            $agreedScopeStatusIds = array_values(array_filter([
+                self::$PENDING_AGREED_SCOPE_SA_STATUS_ID,
+                self::$PENDING_AGREED_SCOPE_VENDOR_STATUS_ID,
+                self::$PENDING_AGREED_SCOPE_BUSINESS_STATUS_ID,
+            ]));
 
-            // ════════════════════════════════════════════════════════
-            // ✨ NEW: Check if this CR used parallel workflows
-            // ════════════════════════════════════════════════════════
+            // Only apply merge logic when the transition is coming from one of these three
+            if (!empty($agreedScopeStatusIds) && in_array($oldStatusId, $agreedScopeStatusIds, true)) {
+
+                $requiredCount = count($agreedScopeStatusIds); // 3
+
+                // Count how many of the 3 have ALREADY inserted a row pointing to Pending SA HL Feedback
+                // (the current row is not yet in the DB, so we add 1)
+                $alreadyInserted = ChangeRequestStatus::where('cr_id', $changeRequestId)
+                    ->where('new_status_id', $pendingSaHlStatus->id)
+                    ->whereIn('old_status_id', $agreedScopeStatusIds)
+                    ->count();
+
+                $totalAfterInsert = $alreadyInserted + 1;
+
+                Log::info('determineActiveStatus: Pending SA HL Feedback merge point check', [
+                    'cr_id'               => $changeRequestId,
+                    'old_status_id'       => $oldStatusId,
+                    'already_inserted'    => $alreadyInserted,
+                    'total_after_insert'  => $totalAfterInsert,
+                    'required'            => $requiredCount,
+                ]);
+
+                if ($totalAfterInsert >= $requiredCount) {
+                    // All 3 parallel approvals have arrived → activate this last row
+                    Log::info('determineActiveStatus: All 3 parallel approvals complete → active=1', [
+                        'cr_id' => $changeRequestId,
+                    ]);
+                    $this->active_flag = self::ACTIVE_STATUS;
+                    return self::ACTIVE_STATUS;
+                }
+
+                // Not all 3 have approved yet → keep this row inactive
+                Log::info('determineActiveStatus: Waiting for remaining approvals → active=0', [
+                    'cr_id'     => $changeRequestId,
+                    'completed' => $totalAfterInsert,
+                    'required'  => $requiredCount,
+                ]);
+                $this->active_flag = self::INACTIVE_STATUS;
+                return self::INACTIVE_STATUS;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // Priority 3: MERGE POINT — "Pending Update Agreed Requirements"
+        //
+        // Both Workflow A (Request Draft CR Doc) and Workflow B
+        // (any of the 3 approval statuses) must arrive before activating.
+        // ════════════════════════════════════════════════════════════════════
+        $mergePointStatus    = Status::where('status_name', 'Pending Update Agreed Requirements')->first();
+        $mergePointStatusId  = $mergePointStatus ? $mergePointStatus->id : null;
+
+        if ($mergePointStatusId && (int) $workflowStatus->to_status_id === (int) $mergePointStatusId) {
 
             $usedParallelWorkflows = $this->didUseParallelWorkflows($changeRequestId);
 
-            Log::info('Merge point transition - checking if parallel workflows used', [
-                'cr_id' => $changeRequestId,
-                'used_parallel_workflows' => $usedParallelWorkflows
+            Log::info('determineActiveStatus: Pending Update Agreed Requirements merge check', [
+                'cr_id'                  => $changeRequestId,
+                'used_parallel_workflows' => $usedParallelWorkflows,
             ]);
 
             if ($usedParallelWorkflows) {
-                // This CR used parallel workflows - apply merge point logic
-
-                Log::info('Parallel workflows detected - checking completion', [
-                    'cr_id' => $changeRequestId
-                ]);
 
                 $bothWorkflowsComplete = $this->areBothWorkflowsCompleteById(
                     $changeRequestId,
@@ -1952,36 +2027,30 @@ class ChangeRequestStatusService
                 );
 
                 if ($bothWorkflowsComplete) {
-                    Log::info('Both workflows complete - active=1', [
-                        'cr_id' => $changeRequestId
+                    Log::info('determineActiveStatus: Both workflows complete → active=1', [
+                        'cr_id' => $changeRequestId,
                     ]);
-
                     $this->active_flag = self::ACTIVE_STATUS;
-                    return self::ACTIVE_STATUS;  // '1'
-                } else {
-                    Log::info('Only one workflow complete - active=0', [
-                        'cr_id' => $changeRequestId
-                    ]);
-
-                    $this->active_flag = self::INACTIVE_STATUS;
-                    return self::INACTIVE_STATUS;  // '0'
+                    return self::ACTIVE_STATUS;
                 }
 
-            } else {
-                // This CR did NOT use parallel workflows - normal logic
-
-                Log::info('No parallel workflows - using normal logic', [
-                    'cr_id' => $changeRequestId
+                Log::info('determineActiveStatus: Only one workflow complete → active=0', [
+                    'cr_id' => $changeRequestId,
                 ]);
+                $this->active_flag = self::INACTIVE_STATUS;
+                return self::INACTIVE_STATUS;
 
-                // Fall through to normal logic below
             }
+
+            // CR did NOT use parallel workflows → fall through to normal logic
+            Log::info('determineActiveStatus: No parallel workflows detected → using normal logic', [
+                'cr_id' => $changeRequestId,
+            ]);
         }
 
-        // ════════════════════════════════════════════════════════════
-        // Priority 3: Original logic for all other workflows
-        // ════════════════════════════════════════════════════════════
-
+        // ════════════════════════════════════════════════════════════════════
+        // Priority 4: Normal / fallback logic
+        // ════════════════════════════════════════════════════════════════════
         $active = self::INACTIVE_STATUS;
 
         $cr_status = ChangeRequestStatus::where('cr_id', $changeRequestId)
@@ -1991,6 +2060,10 @@ class ChangeRequestStatusService
             ->first();
 
         if (!$cr_status) {
+            Log::info('determineActiveStatus: No cr_status found → active=0', [
+                'cr_id'         => $changeRequestId,
+                'old_status_id' => $oldStatusId,
+            ]);
             $this->active_flag = self::INACTIVE_STATUS;
             return self::INACTIVE_STATUS;
         }
@@ -2032,7 +2105,6 @@ class ChangeRequestStatusService
                 $nextToStatusId = $NextStatusWorkflow->workflowstatus[0]->to_status_id;
 
                 if (in_array($nextToStatusId, $parkedIds, true)) {
-
                     $depend_active_count = ChangeRequestStatus::where('cr_id', $changeRequestId)
                         ->active()
                         ->count();
@@ -2044,15 +2116,22 @@ class ChangeRequestStatusService
             } else {
                 $active = self::ACTIVE_STATUS;
             }
+
         } else {
             $active = $depend_active_statuses->count() > 0 ? self::INACTIVE_STATUS : self::ACTIVE_STATUS;
         }
 
-        $this->active_flag = $active;
+        Log::info('determineActiveStatus: Normal logic result', [
+            'cr_id'                   => $changeRequestId,
+            'old_status_id'           => $oldStatusId,
+            'workflow_type_id'        => $changeRequest->workflow_type_id,
+            'depend_active_count'     => $depend_active_statuses->count(),
+            'active'                  => $active,
+        ]);
 
+        $this->active_flag = $active;
         return $active;
     }
-
 
     /**
      * Check if this change request used the parallel workflow feature
