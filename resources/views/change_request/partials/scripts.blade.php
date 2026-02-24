@@ -168,9 +168,22 @@
             function handleCapUsers(statusText) {
                 const showCapUsers = (CONFIG.scriptConfig.cap_users.show || []).some(s => statusText.includes(s));
                 const hideCapUsers = (CONFIG.scriptConfig.cap_users.hide || []).some(s => statusText.includes(s));
+                
+                // Check if cap_users should be required (hide asterisk in specific statuses)
+                const excludedStatuses = [
+                    "Request Vendor MDS",
+                    "Update CR MDs", 
+                    "Pending Update CR MDs",
+                    "Pending Validate CR MDs",
+                    "Pending MDs Sign off",
+                    "Reject and Re-validation CR",
+                    "Need MDs Re-negotiote",
+                    "Pending release Selection"
+                ];
+                const shouldBeRequired = !excludedStatuses.includes(statusText);
 
                 if (showCapUsers) {
-                    toggleFieldVisibility(DOM.capUsersWrapper, DOM.capUsersSelect, true, true);
+                    toggleFieldVisibility(DOM.capUsersWrapper, DOM.capUsersSelect, true, shouldBeRequired);
                     // Force display for stubborn CSS
                     $(DOM.capUsersWrapper).css('display', 'block').removeClass('hidden');
                 } else if (hideCapUsers) {

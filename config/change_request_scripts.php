@@ -19,7 +19,15 @@ return [
         'show' => [
             "Pending CAB",
             "Pending CAB Approval",
-            "CR Doc Valid"
+            "CR Doc Valid",
+            "Request Vendor MDS",
+            "Update CR MDs",
+            "Pending Update CR MDs",
+            "Pending Validate CR MDs",
+            "Pending MDs Sign off",
+            "Reject and Re-validation CR",
+            "Need MDs Re-negotiote",
+            "Pending release Selection"
         ],
         'hide' => [
             "Pending CR Document Validation",
