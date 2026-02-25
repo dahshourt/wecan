@@ -135,21 +135,28 @@ class CustomFieldGroupTypeRepository implements CustomFieldGroupTypeRepositoryIn
 
     public function CustomFieldsByWorkFlowTypeAndStatus($workflow_type_id, $form_type, $status_id)
     {
-        $result = CustomFieldGroup::with('CustomField')->where('wf_type_id', $workflow_type_id)->where('form_type', $form_type)
-            ->where(function ($query) use ($status_id) {
-                $query->where('status_id', $status_id)->orWhereNULL('status_id');
-            })->GroupBy('custom_field_id')->orderBy('enable', 'Desc')->orderBy('sort')->get();
+        // First, get custom fields specifically for this status
+        $specificStatusFields = CustomFieldGroup::with('CustomField')
+            ->where('wf_type_id', $workflow_type_id)
+            ->where('form_type', $form_type)
+            ->where('status_id', $status_id)
+            ->orderBy('sort')
+            ->get();
 
-        // $result = CustomField::whereHas('custom_field_by_workflow', function($q) use($workflow_type_id, $form_type,$status_id){
-        //     $q->where('wf_type_id',$workflow_type_id)->where('form_type',$form_type)->where(function($query) use($status_id) {
-        //         $query->where('status_id' , $status_id)->orWhereNULL('status_id');
-        //     });
-        // })->with(["custom_field_by_workflow" => function($q) use($workflow_type_id, $form_type,$status_id){
-        //     $q->where('wf_type_id',$workflow_type_id)->where('form_type',$form_type)->where(function($query) use($status_id) {
-        //         $query->where('status_id' , $status_id)->orWhereNULL('status_id');
-        //     });
-        // }])->get();
-        // })->with('custom_field_by_workflow')->get();
+        // Then, get custom fields with NULL status_id that don't exist in specific status
+        $specificFieldIds = $specificStatusFields->pluck('custom_field_id')->toArray();
+        
+        $nullStatusFields = CustomFieldGroup::with('CustomField')
+            ->where('wf_type_id', $workflow_type_id)
+            ->where('form_type', $form_type)
+            ->whereNull('status_id')
+            ->whereNotIn('custom_field_id', $specificFieldIds)
+            ->orderBy('sort')
+            ->get();
+
+        // Combine and return results
+        $result = $specificStatusFields->concat($nullStatusFields);
+        
         return $result;
     }
 
