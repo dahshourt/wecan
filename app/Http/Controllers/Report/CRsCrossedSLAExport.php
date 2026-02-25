@@ -86,12 +86,12 @@ class CRsCrossedSLAExport implements FromCollection, WithHeadings
             LEFT JOIN users AS pend_test_assig_usr ON pend_test_assig_usr.id = pend_test.user_id
 
             WHERE 
-                req.start_design_time < pend_design.created_at
-                OR req.end_design_time < pend_design.updated_at
-                OR req.start_develop_time < pend_implement.created_at
-                OR req.end_develop_time < pend_implement.updated_at
-                OR req.start_test_time < pend_test.created_at
-                OR req.end_test_time < pend_test.updated_at
+                (req.start_design_time IS NOT NULL AND req.start_design_time != '' AND pend_design.created_at IS NOT NULL AND req.start_design_time < pend_design.created_at)
+                OR (req.end_design_time IS NOT NULL AND req.end_design_time != '' AND pend_design.updated_at IS NOT NULL AND req.end_design_time < pend_design.updated_at)
+                OR (req.start_develop_time IS NOT NULL AND req.start_develop_time != '' AND pend_implement.created_at IS NOT NULL AND req.start_develop_time < pend_implement.created_at)
+                OR (req.end_develop_time IS NOT NULL AND req.end_develop_time != '' AND pend_implement.updated_at IS NOT NULL AND req.end_develop_time < pend_implement.updated_at)
+                OR (req.start_test_time IS NOT NULL AND req.start_test_time != '' AND pend_test.created_at IS NOT NULL AND req.start_test_time < pend_test.created_at)
+                OR (req.end_test_time IS NOT NULL AND req.end_test_time != '' AND pend_test.updated_at IS NOT NULL AND req.end_test_time < pend_test.updated_at)
 
             GROUP BY req.cr_no;
         ";
