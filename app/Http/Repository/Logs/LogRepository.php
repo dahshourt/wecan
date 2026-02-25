@@ -206,6 +206,7 @@ class LogRepository implements LogRepositoryInterface
             }
 
             $base['message'] = trans($cf_log_message, [
+                'prefix' => $this->log_prefix,
                 'cf_label' => $label,
                 'cf_value' => $value ?? $request->{$cf->name},
                 'user_name' => $user->user_name,
