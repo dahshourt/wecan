@@ -24,6 +24,8 @@ use Illuminate\Support\Str;
 
 class LogRepository implements LogRepositoryInterface
 {
+    private string $log_prefix = 'Change Request';
+
     public function getAll()
     {
         return Log::all();
@@ -87,7 +89,13 @@ class LogRepository implements LogRepositoryInterface
         $change_request = $changeRequest_old;
 
         if ($type === 'create') {
-            $this->createLog($log, $id, $user->id, "Change Request Created By '$user->user_name'");
+
+            // Check if the CR workflow is promo
+            if ((int) data_get($request, 'workflow_type_id') === 9) {
+                $this->log_prefix = 'Promo';
+            }
+
+            $this->createLog($log, $id, $user->id, "$this->log_prefix Created By '$user->user_name'");
 
             $new_status_id = data_get($request, 'new_status_id');
 
@@ -97,8 +105,14 @@ class LogRepository implements LogRepositoryInterface
 
             return true;
         }
+
+        // Check if the CR workflow is promo
+        if ((int) $change_request?->workflow_type_id === 9) {
+            $this->log_prefix = 'Promo';
+        }
+
         if ($type === 'shifting') {
-            $this->createLog($log, $id, $user->id, 'Change Request shifted by admin : ' . $user->user_name);
+            $this->createLog($log, $id, $user->id, "$this->log_prefix shifted by admin : '$user->user_name'");
 
             return true;
         }
@@ -106,18 +120,18 @@ class LogRepository implements LogRepositoryInterface
         $fields = [
             // 'analysis_feedback' => 'Analysis FeedBack',
             // 'comment' => 'Comment',
-            'priority_id' => ['model' => Priority::class, 'field' => 'name', 'message' => 'Change Request Priority Changed To'],
+            'priority_id' => ['model' => Priority::class, 'field' => 'name', 'message' => "$this->log_prefix Priority Changed To"],
             // 'technical_feedback' => 'Technical Feedback Is',
-            'unit_id' => ['model' => Unit::class, 'field' => 'name', 'message' => 'Change Request Assigned To Unit'],
+            'unit_id' => ['model' => Unit::class, 'field' => 'name', 'message' => "$this->log_prefix Assigned To Unit"],
             // 'creator_mobile_number' => 'Creator Mobile Changed To',
             // 'title' => 'Subject Changed To',
-            'application_id' => ['model' => Application::class, 'field' => 'name', 'message' => 'Change Request Title Changed To'],
+            'application_id' => ['model' => Application::class, 'field' => 'name', 'message' => "$this->log_prefix Title Changed To"],
             // 'description' => 'CR Description To',
-            'category_id' => ['model' => Category::class, 'field' => 'name', 'message' => 'Change Request Category Changed To'],
+            'category_id' => ['model' => Category::class, 'field' => 'name', 'message' => "$this->log_prefix Category Changed To"],
             'division_manager_id' => ['model' => DivisionManagers::class, 'field' => 'name', 'message' => 'Division Managers To'],
-            'need_down_time' => ['model' => NeedDownTime::class, 'field' => 'name', 'message' => 'Change Request Need down time Changed To'],
-            'rejection_reason_id' => ['model' => Rejection_reason::class, 'field' => 'name', 'message' => 'Change Request rejection Reason Changed To'],
-            'deployment_impact' => ['model' => DeploymentImpact::class, 'field' => 'name', 'message' => 'Change Request Deployment Impact Changed To'],
+            'need_down_time' => ['model' => NeedDownTime::class, 'field' => 'name', 'message' => "$this->log_prefix Need down time Changed To"],
+            'rejection_reason_id' => ['model' => Rejection_reason::class, 'field' => 'name', 'message' => "$this->log_prefix rejection Reason Changed To"],
+            'deployment_impact' => ['model' => DeploymentImpact::class, 'field' => 'name', 'message' => "$this->log_prefix Deployment Impact Changed To"],
         ];
 
         if ($user->isSystemAdmin()) {
@@ -245,12 +259,12 @@ class LogRepository implements LogRepositoryInterface
         $this->createMultipleLogs($change_request->id, $user->id, $all_logs);
 
         // Boolean Toggles
-        $this->logToggle($log, $id, $user->id, $request, $change_request, 'postpone', 'CR PostPone changed To');
-        $this->logToggle($log, $id, $user->id, $request, $change_request, 'need_ux_ui', 'CR Need UI UX changed To');
+        $this->logToggle($log, $id, $user->id, $request, $change_request, 'postpone', 'PostPone changed To');
+        $this->logToggle($log, $id, $user->id, $request, $change_request, 'need_ux_ui', 'Need UI UX changed To');
 
         // User Assignments
         $assignments = [
-            'assign_to' => 'Change Request assigned manually to',
+            'assign_to' => "$this->log_prefix assigned manually to",
         ];
 
         $assignment_logs = [];
@@ -296,7 +310,7 @@ class LogRepository implements LogRepositoryInterface
                     $newStatusesNames = Status::whereIn('id', $newStatusesIds)->pluck('status_name')->toArray();
                     $actualStatuses = implode(', ', $newStatusesNames);
 
-                    $status_logs[] = "Change request status has been released by {$user->user_name} and the current status is $actualStatuses";
+                    $status_logs[] = "$this->log_prefix status has been released by {$user->user_name} and the current status is $actualStatuses";
                 }
                 // Dependency Hold Log
                 elseif ($change_request->fresh()->is_dependency_hold) {
@@ -312,7 +326,7 @@ class LogRepository implements LogRepositoryInterface
                         ->filter()
                         ->implode(', ');
 
-                    $status_logs[] = "Change Request Status changed to '$actualStatuses' by {$user->user_name} (Pending Dependency (CR#$blockingCrs))";
+                    $status_logs[] = "$this->log_prefix Status changed to '$actualStatuses' by {$user->user_name} (Pending Dependency (CR#$blockingCrs))";
                 }
                 // Normal Status Log
                 else {
@@ -334,9 +348,9 @@ class LogRepository implements LogRepositoryInterface
         }
 
         if ($request->hold === 1) {
-            $status_logs[] = "Change Request Held by $user->user_name";
+            $status_logs[] = "$this->log_prefix Held by $user->user_name";
         } elseif ($request->hold === 0) {
-            $status_logs[] = "Change Request unheld by $user->user_name";
+            $status_logs[] = "$this->log_prefix unheld by $user->user_name";
         }
 
         $this->createMultipleLogs($id, $user->id, $status_logs);
@@ -364,7 +378,7 @@ class LogRepository implements LogRepositoryInterface
     private function logEstimateWithoutAssignee($logRepo, $crId, $user, $request, $durationField, $assigneeField, $label): void
     {
         if (isset($request->$durationField) && empty($request->$assigneeField)) {
-            $log_message = "Change Request $label Estimated by {$user->user_name}";
+            $log_message = "$this->log_prefix $label Estimated by {$user->user_name}";
 
             if (! $this->logExists($log_message, $crId)) {
                 $this->createLog($logRepo, $crId, $user->id, $log_message);
@@ -376,7 +390,7 @@ class LogRepository implements LogRepositoryInterface
     {
         if (isset($request->$durationField)) {
             $cleaned_field = Str::of($durationField)->remove('_id')->replace('_', ' ')->title();
-            $log_message = "Change Request $cleaned_field manually set to '{$request->$durationField} H' by {$user->user_name}";
+            $log_message = "$this->log_prefix $cleaned_field manually set to '{$request->$durationField} H' by {$user->user_name}";
 
             if (! $this->logExists($log_message, $crId)) {
                 $this->createLog($logRepo, $crId, $user->id, $log_message);
@@ -394,7 +408,7 @@ class LogRepository implements LogRepositoryInterface
             $startLabel = Str::of($NewStartField)->replace('_', ' ')->title();
             //            $endLabel = Str::of($endField)->replace('_', ' ')->title();
 
-            $log_message = "Change Request $startLabel set to '{$request->$startField}' and end time set to '{$request->$endField}' by {$user->user_name}";
+            $log_message = "$this->log_prefix $startLabel set to '{$request->$startField}' and end time set to '{$request->$endField}' by {$user->user_name}";
 
             if (! $this->logExists($log_message, $crId)) {
                 $this->createLog($logRepo, $crId, $user->id, $log_message);
@@ -410,7 +424,7 @@ class LogRepository implements LogRepositoryInterface
 
     private function prepareCRStatusLogMessage(int $status_id, User $user, ?string $stage = null, ?string $custom_log_message_template = null): string
     {
-        $default_status_log_message = "Change Request Status changed to ':status_name' By ':user_name'";
+        $default_status_log_message = "$this->log_prefix Status changed to ':status_name' By ':user_name'";
 
         if ($stage === 'create') {
             $status = Status::findOrFail($status_id);
@@ -426,6 +440,7 @@ class LogRepository implements LogRepositoryInterface
         }
 
         return trans($log_message, [
+            'prefix' => $this->log_prefix,
             'status_name' => $status_name,
             'user_name' => $user->user_name,
         ]);
