@@ -28,7 +28,26 @@
             <label for="{{ $fieldName }}">{{ $item->CustomField->label }}</label>
         @endif
 
-        @if(isset($item->validation_type_id) && $item->validation_type_id == 1)
+        @php
+            // Check if field should be required (hide asterisk for cap_users in specific statuses)
+            $shouldShowRequired = true;
+            if ($fieldName === 'cap_users' && isset($cr)) {
+                $currentStatus = $cr->getCurrentStatus()?->status?->status_name ?? '';
+                $excludedStatuses = [
+                    "Request Vendor MDS",
+                    "Update CR MDs", 
+                    "Pending Update CR MDs",
+                    "Pending Validate CR MDs",
+                    "Pending MDs Sign off",
+                    "Reject and Re-validation CR",
+                    "Need MDs Re-negotiote",
+                    "Pending release Selection"
+                ];
+                $shouldShowRequired = !in_array($currentStatus, $excludedStatuses);
+            }
+        @endphp
+        
+        @if(isset($item->validation_type_id) && $item->validation_type_id == 1 && $shouldShowRequired)
             <span style="color: red;">*</span>
         @endif
 
@@ -125,16 +144,39 @@
                         @break
 
                     @case('cap_users')
+                        @php
+                            // Retrieve selected cap_users through cab_crs relationship
+                            $selectedCapUsers = [];
+
+                            if (isset($cr)) {
+                                // Get selected users through cab_crs -> cab_cr_users relationship
+                                $cabCrs = $cr->cabCrs; // or $cr->cab_crs
+                                foreach ($cabCrs as $cabCr) {
+                                    $cabUsers = \Illuminate\Support\Facades\DB::table('cab_cr_users')
+                                        ->where('cab_cr_id', $cabCr->id)
+                                        ->pluck('user_id')
+                                        ->toArray();
+                                    $selectedCapUsers = array_merge($selectedCapUsers, $cabUsers);
+                                }
+                                $selectedCapUsers = array_unique($selectedCapUsers);
+                            }
+                            
+                            // Also check for old input (form validation errors)
+                            $oldValues = old($fieldName);
+                            if ($oldValues) {
+                                $selectedCapUsers = is_array($oldValues) ? $oldValues : [$oldValues];
+                            }
+                        @endphp
                         <option value="">Select</option>
                         @if(!in_array($cr->requester->id ?? '', $cap_users->pluck('user_id')->toArray()))
-                            <option value="{{ $cr->requester->id ?? '' }}">{{ $cr->requester->name ?? '' }}</option>
+                            <option value="{{ $cr->requester->id ?? '' }}" {{ in_array($cr->requester->id ?? '', $selectedCapUsers) ? 'selected' : '' }}>{{ $cr->requester->name ?? '' }}</option>
                         @endif
                         @foreach($cap_users as $cap)
-                            <option value="{{ $cap->user_id }}">{{ $cap->user->name }}</option>
+                            <option value="{{ $cap->user_id }}" {{ in_array($cap->user_id, $selectedCapUsers) ? 'selected' : '' }}>{{ $cap->user->name }}</option>
                         @endforeach
                         @break
 
-                        @case('relevant')
+                    @case('relevant')
     <option value="">Select</option>
 
     @php
