@@ -235,12 +235,15 @@ technical_implementation_ranked AS (
                 $join->on('ch_cus_fields.cr_id', '=', 'req.id')
                     ->where('ch_cus_fields.custom_field_id', '=', 48);
             })
-
+            
             ->leftJoin('change_request_custom_fields as ch_cus_tech_flds', function ($join) {
                 $join->on('ch_cus_tech_flds.cr_id', '=', 'req.id')
                     ->where('ch_cus_tech_flds.custom_field_id', '=', 46);
             })
-
+            ->leftJoin('change_request_custom_fields as on_behalf', function ($join) {
+                $join->on('on_behalf.cr_id', '=', 'req.id')
+                    ->where('on_behalf.custom_field_name', '=', 'on_behalf');
+            })
             ->leftJoin('users as design_team_name', 'design_team_name.id', '=', 'ch_cus_fields.custom_field_value')
             ->leftJoin('users as pend_imple_assig_usr', 'pend_imple_assig_usr.id', '=', 'pend_implement.user_id')
             ->leftJoin('users as pend_test_assig_usr', 'pend_test_assig_usr.id', '=', 'pend_test.user_id')
@@ -261,7 +264,10 @@ technical_implementation_ranked AS (
                 apps.name AS `Applications`,
                 req.title,
                 flow.name AS `CR Type`,
-                'N\A' as 'On Behalf',
+                CASE 
+                    WHEN on_behalf.custom_field_value = '1' THEN 'YES'
+                    WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
+                END AS 'On Behalf',
                 CASE 
                     WHEN req.hold = '0' THEN 'N/A'
                     WHEN req.hold = '1' THEN 'YES'
@@ -307,6 +313,10 @@ technical_implementation_ranked AS (
 
         if ($on_hold) {
             $query->where('req.hold', $on_hold);
+        }
+
+        if ($on_behalf) {
+            $query->where('on_behalf.custom_field_value', $on_behalf);
         }
 
          if ($ticket_type) {
@@ -422,7 +432,11 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'Workflow Type',
-        'N\A' as 'On Behalf',
+        CASE 
+        WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
+        WHEN on_behalf.custom_field_value = '1' THEN 'YES'
+        ELSE 'N/A'
+    END AS 'On Behalf',
         CASE 
         WHEN req.hold = '0' THEN 'N/A'
         WHEN req.hold = '1' THEN 'YES'
@@ -530,7 +544,8 @@ $query = "
     LEFT JOIN users AS pend_test_assig_usr ON pend_test_assig_usr.id = pend_test.user_id 
     LEFT JOIN change_request_custom_fields as chang_custm_rejt_reason ON  chang_custm_rejt_reason.cr_id = req.id and  chang_custm_rejt_reason.custom_field_id = 63
     LEFT JOIN rejection_reasons as rejt_reason ON  rejt_reason.id = chang_custm_rejt_reason.custom_field_value 
-   
+       LEFT JOIN change_request_custom_fields AS on_behalf  ON on_behalf.cr_id = req.id AND on_behalf.custom_field_name = 'on_behalf'
+
     WHERE 1=1
    ";
 
@@ -544,6 +559,11 @@ $query = "
         if ($on_hold) {
             $query .= " AND req.hold = ?";
             $bindings[] = $on_hold;
+        }
+
+        if ($on_behalf) {
+            $query .= " AND on_behalf.custom_field_value = ?";
+            $bindings[] = $on_behalf;
         }
 
         if ($ticket_type) {
@@ -727,6 +747,10 @@ $query = "
                 $join->on('custom_field_chang.cr_id', '=', 'req.id')
                      ->where('custom_field_chang.custom_field_id', 67);
             })
+            ->leftJoin('change_request_custom_fields as on_behalf', function($join) {
+                $join->on('on_behalf.cr_id', '=', 'req.id')
+                     ->where('on_behalf.custom_field_name', '=', 'on_behalf');
+            })
             ->leftJoin('users as usr', 'usr.id', '=', 'custom_field_chang.custom_field_value')
             ->leftJoin('roles', 'roles.id', '=', 'usr.role_id')
             ->leftJoin('change_request_custom_fields as dpnd_on', function($join) {
@@ -742,7 +766,13 @@ $query = "
                 'apps.name as Applications',
                 'req.title',
                 'flow.name as Workflow_Type',
-                DB::raw("'N/A' as 'On Behalf'"),
+                DB::raw("
+                    CASE 
+                        WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
+                        WHEN on_behalf.custom_field_value = '1' THEN 'YES'
+                        ELSE 'N/A'
+                    END AS 'On Behalf'
+                "),
                 DB::raw("
                     CASE 
                         WHEN req.hold = '0' THEN 'N/A'
@@ -787,6 +817,10 @@ $query = "
 
         if(!empty($status_ids)) {
             $query->whereIn('curr_status.new_status_id', $status_ids);
+        }
+
+        if($on_behalf) {
+            $query->where('on_behalf.custom_field_value', $on_behalf);
         }
 
         if($cr_nos) {
@@ -841,7 +875,7 @@ $query = "
         $on_behalf = $request->input('on_behalf');
 
         $bindings = [];
-
+        
         $query = "
                          WITH pend_design_ranked AS (
     SELECT 
@@ -878,6 +912,36 @@ $query = "
         ROW_NUMBER() OVER (PARTITION BY cr_id ORDER BY id DESC) AS rn
     FROM change_request_statuses
     WHERE new_status_id = 11
+),
+ technical_implem_ranked AS (
+    SELECT 
+        cr_id,
+        id,
+        created_at,
+        updated_at,
+        ROW_NUMBER() OVER (PARTITION BY cr_id ORDER BY id DESC) AS rn
+    FROM change_request_statuses
+    WHERE new_status_id = 10
+),
+design_progrs_ranked AS (
+    SELECT 
+        cr_id,
+        id,
+        created_at,
+        updated_at,
+        ROW_NUMBER() OVER (PARTITION BY cr_id ORDER BY id DESC) AS rn
+    FROM change_request_statuses
+    WHERE new_status_id = 15
+),
+test_progrs_ranked AS (
+    SELECT 
+        cr_id,
+        id,
+        created_at,
+        updated_at,
+        ROW_NUMBER() OVER (PARTITION BY cr_id ORDER BY id DESC) AS rn
+    FROM change_request_statuses
+    WHERE new_status_id = 13
 )
 
    SELECT 
@@ -886,7 +950,11 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'Workflow Type',
-        'N\A' as 'On Behalf',
+        CASE 
+        WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
+        WHEN on_behalf.custom_field_value = '1' THEN 'YES'
+        ELSE 'N/A'
+            END AS 'On Behalf',
         CASE 
         WHEN req.hold = '0' THEN 'N/A'
         WHEN req.hold = '1' THEN 'YES'
@@ -933,7 +1001,12 @@ $query = "
    LEFT JOIN pend_design_ranked pend_design ON pend_design.cr_id = req.id AND pend_design.rn = 1
    LEFT JOIN pend_implementaion_ranked pend_implement ON pend_implement.cr_id = req.id AND pend_implement.rn = 1
    LEFT JOIN pend_testing_ranked pend_test ON pend_test.cr_id = req.id AND pend_test.rn = 1
-     
+   LEFT JOIN technical_implem_ranked tech_dev ON tech_dev.cr_id = req.id AND tech_dev.rn = 1
+   LEFT JOIN design_progrs_ranked des_progs ON des_progs.cr_id = req.id AND des_progs.rn = 1
+   LEFT JOIN test_progrs_ranked test_progs ON test_progs.cr_id = req.id AND test_progs.rn = 1
+
+
+
    LEFT JOIN users AS pend_design_assig_usr ON pend_design_assig_usr.id = pend_design.user_id 
    LEFT JOIN users AS pend_imple_assig_usr ON pend_imple_assig_usr.id = pend_implement.user_id 
    LEFT JOIN `groups` AS grop ON grop.id = pend_implement.group_id 
@@ -942,18 +1015,20 @@ $query = "
      LEFT JOIN change_request_custom_fields AS dpnd_on  ON dpnd_on.cr_id = req.id AND dpnd_on.custom_field_name = 'cr_type'
     LEFT JOIN change_request_custom_fields AS rlvvnt  ON rlvvnt.cr_id = req.id AND rlvvnt.custom_field_name = 'cr_type'
 
-   where 
+    LEFT JOIN change_request_custom_fields AS on_behalf  ON on_behalf.cr_id = req.id AND on_behalf.custom_field_name = 'on_behalf'
+
+   where   
 	 -- Design mismatch
-    (req.start_design_time < pend_design.created_at
-    OR req.end_design_time < pend_design.updated_at
+    (req.start_design_time < des_progs.created_at
+    OR req.end_design_time < des_progs.updated_at
     
     -- Implementation mismatch
-    OR req.start_develop_time < pend_implement.created_at
-    OR req.end_develop_time < pend_implement.updated_at
+    OR req.start_develop_time < tech_dev.created_at
+    OR req.end_develop_time < tech_dev.updated_at
 
     -- Testing mismatch
-    OR req.start_test_time < pend_test.created_at
-    OR req.end_test_time < pend_test.updated_at)
+    OR req.start_test_time < test_progs.created_at
+    OR req.end_test_time < test_progs.updated_at)
     ";
 
         // start new filter
@@ -967,6 +1042,11 @@ $query = "
             $bindings[] = $on_hold;
         }
 
+        if ($on_behalf) {
+            $query .= " AND on_behalf.custom_field_value = ?";
+            $bindings[] = $on_behalf;
+        }
+
         if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
             $bindings[] = $ticket_type;
@@ -974,7 +1054,7 @@ $query = "
         // end new filter
 
         $query .= " GROUP BY req.cr_no";
-
+       
         $results = \DB::select($query, $bindings);
         $results = collect($results);
 
@@ -1026,7 +1106,11 @@ $query = "
         apps.`name` 'Applications',
         req.title,
         flow.`name` 'CR Type',
-        'N\A' as 'On Behalf',
+        CASE 
+        WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
+        WHEN on_behalf.custom_field_value = '1' THEN 'YES'
+        ELSE 'N/A'
+             END AS 'On Behalf',
         CASE 
         WHEN req.hold = '0' THEN 'N/A'
         WHEN req.hold = '1' THEN 'YES'
@@ -1133,6 +1217,7 @@ $query = "
      LEFT JOIN change_request_custom_fields as chang_custm_rejt_reason ON  chang_custm_rejt_reason.cr_id = req.id and  chang_custm_rejt_reason.custom_field_id = 63
      LEFT JOIN rejection_reasons as rejt_reason ON  rejt_reason.id = chang_custm_rejt_reason.custom_field_value 
 
+            LEFT JOIN change_request_custom_fields AS on_behalf  ON on_behalf.cr_id = req.id AND on_behalf.custom_field_name = 'on_behalf'
 
     WHERE curr_status.new_status_id = 19
     ";
@@ -1142,10 +1227,16 @@ $query = "
             $query .= " AND req.top_management = ?";
             $bindings[] = $top_management;
         }
-
+ 
         if ($on_hold) {
             $query .= " AND req.hold = ?";
             $bindings[] = $on_hold;
+        }
+        
+        
+        if ($on_behalf) {
+            $query .= " AND on_behalf.custom_field_value = ?";
+            $bindings[] = $on_behalf;
         }
 
          if ($ticket_type) {
@@ -1275,7 +1366,11 @@ SELECT
     categry.`name` AS 'Category',
     stat.status_name AS 'Current Status',
     req.requester_name,
-    'N\A' as 'On Behalf',
+    CASE 
+        WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
+        WHEN on_behalf.custom_field_value = '1' THEN 'YES'
+        ELSE 'N/A'
+    END AS 'On Behalf',
     CASE 
         WHEN req.hold = '0' THEN 'N/A'
         WHEN req.hold = '1' THEN 'YES'
@@ -1552,6 +1647,7 @@ LEFT JOIN change_request_custom_fields AS rlvvnt  ON rlvvnt.cr_id = req.id AND r
 -- Category
 LEFT JOIN change_request_custom_fields AS cut_felds_cagoy ON cut_felds_cagoy.cr_id = req.id AND cut_felds_cagoy.custom_field_id = '31'
 LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_value
+            LEFT JOIN change_request_custom_fields AS on_behalf  ON on_behalf.cr_id = req.id AND on_behalf.custom_field_name = 'on_behalf'
 
 
   WHERE 1=1
@@ -1576,6 +1672,12 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
             $bindings[] = $on_hold;
         }
 
+
+    if   ($on_behalf) {
+            $query .= " AND on_behalf.custom_field_value = ?";
+            $bindings[] = $on_behalf;
+        }
+        
         if ($ticket_type) {
             $query .= " AND dpnd_on.custom_field_value = ?";
             $bindings[] = $ticket_type;
@@ -1755,7 +1857,12 @@ SELECT
     categry.`name` AS 'Category',
     stat.status_name AS 'Current Status',
     req.requester_name,
-    'N\A' as 'On Behalf',
+
+    CASE 
+        WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
+        WHEN on_behalf.custom_field_value = '1' THEN 'YES'
+        ELSE 'N/A'
+    END AS 'On Behalf',
     CASE 
         WHEN req.hold = '0' THEN 'N/A'
         WHEN req.hold = '1' THEN 'YES'
@@ -2035,6 +2142,7 @@ LEFT JOIN `groups` AS technical_team ON technical_team.id = usr_grp.group_id
 LEFT JOIN change_request_custom_fields AS cut_felds_cagoy ON cut_felds_cagoy.cr_id = req.id AND cut_felds_cagoy.custom_field_id = '31'
 LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_value
 
+            LEFT JOIN change_request_custom_fields AS on_behalf  ON on_behalf.cr_id = req.id AND on_behalf.custom_field_name = 'on_behalf'
 
   WHERE 1=1
   ";
@@ -2062,6 +2170,10 @@ LEFT JOIN categories AS categry ON categry.id = cut_felds_cagoy.custom_field_val
             $bindings[] = $ticket_type;
         }
         
+        if   ($on_behalf) {
+            $query .= " AND on_behalf.custom_field_value = ?";
+            $bindings[] = $on_behalf;
+        }
 
         if ($to_date) {
             $query .= " AND req.created_at <= ?";
