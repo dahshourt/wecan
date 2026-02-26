@@ -263,7 +263,7 @@ technical_implementation_ranked AS (
                 req.cr_no,
                 apps.name AS `Applications`,
                 req.title,
-                flow.name AS `CR Type`,
+                flow.name AS `Workflow Type`,
                 CASE 
                     WHEN on_behalf.custom_field_value = '1' THEN 'YES'
                     WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
@@ -1105,7 +1105,7 @@ test_progrs_ranked AS (
        
         apps.`name` 'Applications',
         req.title,
-        flow.`name` 'CR Type',
+        flow.`name` 'Workflow Type',
         CASE 
         WHEN on_behalf.custom_field_value = '0' THEN 'N/A'
         WHEN on_behalf.custom_field_value = '1' THEN 'YES'
