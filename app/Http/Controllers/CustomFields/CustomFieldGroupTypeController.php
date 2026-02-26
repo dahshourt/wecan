@@ -234,43 +234,49 @@ class CustomFieldGroupTypeController extends Controller
             try {
                 DB::beginTransaction();
 
-                // Delete existing custom field group types
-                $this->custom_field_group_type->deleteCFs();
+                // Check if this is a special view update with workflow_type + status
+                if ($request->form_type == 2 && $request->wf_type_id && $request->status_id) {
+                    // Implement upsert logic for workflow_type + status combination
+                    $this->upsertCustomFieldsForWorkflowAndStatus($request);
+                } else {
+                    // Original logic: Delete existing custom field group types
+                    $this->custom_field_group_type->deleteCFs();
 
-                // Loop through each custom field ID
-                foreach ($request->custom_field_id as $key => $value) {
-                    //  echo $request->sort[$key].'<br>';
-                    if (isset($value) && $value != false) {
-                        // Log the sort value for each custom field
+                    // Loop through each custom field ID
+                    foreach ($request->custom_field_id as $key => $value) {
+                        //  echo $request->sort[$key].'<br>';
+                        if (isset($value) && $value != false) {
+                            // Log the sort value for each custom field
 
-                        $data = [
-                            'form_type' => $request->form_type,
-                            'custom_field_id' => $value,
-                            'active' => '1',
-                            'sort' => $request->sort[$key], // Always include the sort field
-                        ];
+                            $data = [
+                                'form_type' => $request->form_type,
+                                'custom_field_id' => $value,
+                                'active' => '1',
+                                'sort' => $request->sort[$key], // Always include the sort field
+                            ];
 
-                        // Conditionally add other fields to the data array
-                        if ($request->status_id) {
-                            $data['status_id'] = $request->status_id;
-                        }
-                        if ($request->group_id) {
-                            $data['group_id'] = $request->group_id;
-                        }
-                        if ($request->wf_type_id) {
-                            $data['wf_type_id'] = $request->wf_type_id;
-                        }
-                        if (isset($request->validation_type_id[$key])) {
-                            $data['validation_type_id'] = $request->validation_type_id[$key];
-                        }
-                        if (isset($request->enable[$key])) {
-                            $data['enable'] = $request->enable[$key];
-                        }
+                            // Conditionally add other fields to the data array
+                            if ($request->status_id) {
+                                $data['status_id'] = $request->status_id;
+                            }
+                            if ($request->group_id) {
+                                $data['group_id'] = $request->group_id;
+                            }
+                            if ($request->wf_type_id) {
+                                $data['wf_type_id'] = $request->wf_type_id;
+                            }
+                            if (isset($request->validation_type_id[$key])) {
+                                $data['validation_type_id'] = $request->validation_type_id[$key];
+                            }
+                            if (isset($request->enable[$key])) {
+                                $data['enable'] = $request->enable[$key];
+                            }
 
-                        // Debug: Print the data array
+                            // Debug: Print the data array
 
-                        // Create the custom field group type
-                        $this->custom_field_group_type->create($data);
+                            // Create the custom field group type
+                            $this->custom_field_group_type->create($data);
+                        }
                     }
                 }
 
@@ -289,6 +295,52 @@ class CustomFieldGroupTypeController extends Controller
             return redirect()->back()->with('error', 'Custom Fields required');
 
         }
+    }
+
+    /**
+     * Upsert custom fields for workflow type and status combination
+     * This method implements the override logic based on workflow_type + status
+     */
+    private function upsertCustomFieldsForWorkflowAndStatus($request)
+    {
+        // First, delete existing records for this workflow_type + status combination
+        $this->deleteExistingCustomFieldsForWorkflowAndStatus($request);
+
+        // Then, insert new records
+        foreach ($request->custom_field_id as $key => $value) {
+            if (isset($value) && $value != false) {
+                $data = [
+                    'form_type' => $request->form_type,
+                    'custom_field_id' => $value,
+                    'active' => '1',
+                    'sort' => $request->sort[$key],
+                    'wf_type_id' => $request->wf_type_id,
+                    'status_id' => $request->status_id,
+                ];
+
+                // Add optional fields
+                if (isset($request->validation_type_id[$key])) {
+                    $data['validation_type_id'] = $request->validation_type_id[$key];
+                }
+                if (isset($request->enable[$key])) {
+                    $data['enable'] = $request->enable[$key];
+                }
+
+                // Create the custom field group type
+                $this->custom_field_group_type->create($data);
+            }
+        }
+    }
+
+    /**
+     * Delete existing custom fields for the given workflow_type + status combination
+     */
+    private function deleteExistingCustomFieldsForWorkflowAndStatus($request)
+    {
+        return \App\Models\CustomFieldGroup::where('form_type', $request->form_type)
+            ->where('wf_type_id', $request->wf_type_id)
+            ->where('status_id', $request->status_id)
+            ->delete();
     }
 
     public function update(CustomFieldGroupTypeRequest $request, $id)
