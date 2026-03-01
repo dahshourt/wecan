@@ -281,10 +281,37 @@
                         @break
 
                     @default
+                        @php
+                            // Get selected values for multiselect fields
+                            $selectedValues = [];
+                            
+                            if (isset($cr)) {
+                                // Try to get the custom field value from change_request_custom_fields
+                                $customFieldValue = \Illuminate\Support\Facades\DB::table('change_request_custom_fields')
+                                    ->where('cr_id', $cr->id)
+                                    ->where('custom_field_name', $fieldName)
+                                    ->value('custom_field_value');
+                                    
+                                if ($customFieldValue) {
+                                    // Decode JSON and convert to array of strings
+                                    $decoded = json_decode($customFieldValue, true);
+                                    if (is_array($decoded)) {
+                                        $selectedValues = array_map('strval', $decoded);
+                                    }
+                                }
+                            }
+                            
+                            // Also check for old input (form validation errors)
+                            $oldValues = old($fieldName);
+                            if ($oldValues) {
+                                $selectedValues = is_array($oldValues) ? array_map('strval', $oldValues) : [strval($oldValues)];
+                            }
+                        @endphp
+                        
                         @if(isset($customOptions) && count($customOptions))
                             <option value="">Select</option>
                             @foreach($customOptions as $option)
-                                <option value="{{ $option->id }}" {{ old($fieldName, $cr->{$fieldName} ?? '') == $option->id ? 'selected' : '' }}>
+                                <option value="{{ $option->id }}" {{ in_array(strval($option->id), $selectedValues) ? 'selected' : '' }}>
                                     {{ $option->name }}
                                 </option>
                             @endforeach
