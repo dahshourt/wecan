@@ -284,8 +284,8 @@
                                                                     @endif
 
                                                                     @if(isset($trace['class']) || isset($trace['function']))
-                                                                        <div class="text-dark mt-2">
-                                                                            <i class="fas fa-code mr-1"></i>
+                                                                        <div class="text-dark mt-2 d-flex align-items-center">
+                                                                            <i class="fas fa-code mr-2"></i>
                                                                             <code
                                                                                 style="background: white; padding: 2px 6px; border-radius: 3px;">
                                                                                 @if(isset($trace['class']))
@@ -307,10 +307,13 @@
 
                                                                     @if(isset($trace['args']) && is_array($trace['args']) && count($trace['args']) > 0)
                                                                         <div class="mt-2">
-                                                                            <small class="text-muted">
-                                                                                <i class="fas fa-list mr-1"></i>
-                                                                                Arguments: {{ count($trace['args']) }}
-                                                                            </small>
+                                                                            <div class="mb-1 d-flex align-items-center">
+                                                                                <small class="text-muted font-weight-bold d-flex align-items-center">
+                                                                                    <i class="fas fa-list mr-2"></i>
+                                                                                    <span>Arguments ({{ count($trace['args']) }}):</span>
+                                                                                </small>
+                                                                            </div>
+                                                                            <pre style="background: white; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px; margin: 0; font-size: 0.75rem; max-height: 200px; overflow-y: auto;">{{ json_encode($trace['args'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                                                                         </div>
                                                                     @endif
                                                                 </div>
