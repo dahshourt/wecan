@@ -26,6 +26,7 @@ use App\Http\Controllers\KpiProject\KpiProjectController;
 use App\Http\Controllers\KPIs\KPIController;
 use App\Http\Controllers\KpiSubInitiative\KpiSubInitiativeController;
 use App\Http\Controllers\KpiType\KpiTypeController;
+use App\Http\Controllers\LogViewer\LogViewerController;
 use App\Http\Controllers\NotificationRules\NotificationRulesController;
 use App\Http\Controllers\NotificationTemplates\NotificationTemplatesController;
 use App\Http\Controllers\Parents\ParentController;
@@ -387,4 +388,12 @@ Route::middleware(['auth'])->group(function () {
     // Validation Routes
     Route::post('/validate/mds_approvers', [App\Http\Controllers\Validation\MdsApproversValidationController::class, 'validateEmail'])->name('validate.mds_approvers');
 
+    // --- Log Viewer Routes ---
+    Route::prefix('log-viewer')->name('log-viewer.')->group(function () {
+        Route::get('/', [LogViewerController::class, 'index'])->name('index');
+        Route::get('/{id}', [LogViewerController::class, 'show'])->name('show');
+        Route::post('/{id}/resolve', [LogViewerController::class, 'markAsResolved'])->name('resolve');
+        Route::post('/{id}/resolve-similar', [LogViewerController::class, 'markAllSimilarAsResolved'])->name('resolve-similar');
+        Route::delete('/{id}', [LogViewerController::class, 'destroy'])->name('destroy');
+    });
 });
