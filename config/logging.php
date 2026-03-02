@@ -54,6 +54,11 @@ return [
             'days' => 14,
         ],
 
+        'custom_logger' => [
+            'driver' => 'custom',
+            'via' => \App\Log\DatabaseLogger::class,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
