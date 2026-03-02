@@ -32,6 +32,11 @@ class ChangeRequestStatusService
 
     public function updateChangeRequestStatus(int $changeRequestId, $request): bool
     {
+        Log::info('ChangeRequestStatusService: updateChangeRequestStatus METHOD START', [
+            'changeRequestId' => $changeRequestId,
+            'request_new_status_id' => $request->new_status_id ?? 'not_set',
+        ]);
+        
         try {
             DB::beginTransaction();
 
@@ -52,8 +57,22 @@ class ChangeRequestStatusService
             }
 
             // 2. Validate
+            Log::info('ChangeRequestStatusService: About to validate status change', [
+                'changeRequestId' => $changeRequestId,
+                'statusData' => $context->statusData,
+            ]);
+            
             $statusChanged = $this->validator->validateStatusChange($context);
+            
+            Log::info('ChangeRequestStatusService: Validation result', [
+                'changeRequestId' => $changeRequestId,
+                'statusChanged' => $statusChanged,
+            ]);
+            
             if (!$statusChanged) {
+                Log::info('ChangeRequestStatusService: Status not changed, returning early', [
+                    'changeRequestId' => $changeRequestId,
+                ]);
                 DB::commit();
                 return true;
             }
@@ -73,7 +92,21 @@ class ChangeRequestStatusService
             }
 
             // 4. Process Status Update (Creation)
+            Log::info('ChangeRequestStatusService: About to call creator->processStatusUpdate', [
+                'changeRequestId' => $changeRequestId,
+                'context' => [
+                    'cr_id' => $context->changeRequest->id,
+                    'old_status_id' => $context->statusData['old_status_id'] ?? 'not_set',
+                    'new_status_id' => $context->statusData['new_status_id'] ?? 'not_set',
+                    'workflow_id' => $context->workflow->id ?? 'not_set',
+                ],
+            ]);
+            
             $this->creator->processStatusUpdate($context);
+            
+            Log::info('ChangeRequestStatusService: creator->processStatusUpdate completed', [
+                'changeRequestId' => $changeRequestId,
+            ]);
 
             // 5. Fire Events
             $this->eventService->fireStatusUpdated($context, $this->creator->getActiveFlag());

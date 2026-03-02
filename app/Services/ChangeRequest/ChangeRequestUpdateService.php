@@ -144,8 +144,28 @@ class ChangeRequestUpdateService
         $this->updateStatusAssignments($id, $request);
 
         // 10) CR-level status move (main workflow)
+        Log::info('ChangeRequestUpdateService: Checking for status update', [
+            'cr_id' => $id,
+            'new_status_id_set' => isset($request->new_status_id),
+            'new_status_id_value' => $request->new_status_id ?? 'not_set',
+            'all_request_data' => $request->all(),
+        ]);
+        
         if (isset($request->new_status_id)) {
+            Log::info('ChangeRequestUpdateService: About to call statusService->updateChangeRequestStatus', [
+                'cr_id' => $id,
+                'new_status_id' => $request->new_status_id,
+            ]);
+            
             $this->statusService->updateChangeRequestStatus($id, $request);
+            
+            Log::info('ChangeRequestUpdateService: statusService->updateChangeRequestStatus completed', [
+                'cr_id' => $id,
+            ]);
+        } else {
+            Log::info('ChangeRequestUpdateService: No status update needed', [
+                'cr_id' => $id,
+            ]);
         }
         if (!isset($request->new_status_id)) {
             event(new ChangeRequestUserAssignment($this->changeRequest_old, $request));

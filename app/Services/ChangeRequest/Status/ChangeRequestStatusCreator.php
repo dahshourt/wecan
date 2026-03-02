@@ -30,13 +30,34 @@ class ChangeRequestStatusCreator
 
     public function processStatusUpdate(ChangeRequestStatusContext $context): void
     {
+        Log::info('ChangeRequestStatusCreator: processStatusUpdate START', [
+            'cr_id' => $context->changeRequest->id,
+            'old_status_id' => $context->statusData['old_status_id'],
+            'new_status_id' => $context->statusData['new_status_id'],
+            'workflow_id' => $context->workflow->id,
+        ]);
+
         $this->active_flag = '0';
 
         $technicalTeamCounts = $this->getTechnicalTeamCounts($context->changeRequest->id, $context->statusData['old_status_id']);
+        
+        Log::info('ChangeRequestStatusCreator: Technical team counts', [
+            'cr_id' => $context->changeRequest->id,
+            'technical_counts' => $technicalTeamCounts,
+        ]);
 
         $this->updateCurrentStatus($context, $technicalTeamCounts);
+        
+        Log::info('ChangeRequestStatusCreator: updateCurrentStatus completed', [
+            'cr_id' => $context->changeRequest->id,
+        ]);
 
         $this->createNewStatuses($context);
+        
+        Log::info('ChangeRequestStatusCreator: createNewStatuses completed', [
+            'cr_id' => $context->changeRequest->id,
+            'final_active_flag' => $this->active_flag,
+        ]);
     }
 
     public function getActiveFlag(): string
@@ -141,23 +162,55 @@ class ChangeRequestStatusCreator
 
     private function createNewStatuses(ChangeRequestStatusContext $context): void
     {
+        Log::info('ChangeRequestStatusCreator: createNewStatuses START', [
+            'cr_id' => $context->changeRequest->id,
+            'workflow_id' => $context->workflow->id,
+            'workflow_statuses_count' => $context->workflow->workflowstatus->count(),
+        ]);
+        
         // Re-fetch current status logic if needed, or pass it down?
         // The original code re-fetched it inside createNewStatuses.
         $currentStatus = null;
         if (isset($context->request['reference_status']) || request()->reference_status) {
             $refStatus = $context->request['reference_status'] ?? request()->reference_status;
             $currentStatus = ChangeRequestStatus::find($refStatus);
+            Log::info('ChangeRequestStatusCreator: Using reference_status', [
+                'cr_id' => $context->changeRequest->id,
+                'reference_status' => $refStatus,
+                'current_status_found' => $currentStatus ? true : false,
+            ]);
         } else {
             $currentStatus = ChangeRequestStatus::where('cr_id', $context->changeRequest->id)->where(
                 'new_status_id',
                 $context->statusData['old_status_id']
             )->first();
+            Log::info('ChangeRequestStatusCreator: Looking up current status by old_status_id', [
+                'cr_id' => $context->changeRequest->id,
+                'old_status_id' => $context->statusData['old_status_id'],
+                'current_status_found' => $currentStatus ? true : false,
+            ]);
         }
 
         $strategy = $this->getWorkflowStrategy($context->changeRequest->workflow_type_id);
+        
+        Log::info('ChangeRequestStatusCreator: Strategy determined', [
+            'cr_id' => $context->changeRequest->id,
+            'workflow_type_id' => $context->changeRequest->workflow_type_id,
+            'strategy_class' => get_class($strategy),
+        ]);
 
-        foreach ($context->workflow->workflowstatus as $workflowStatus) {
+        foreach ($context->workflow->workflowstatus as $index => $workflowStatus) {
+            Log::info('ChangeRequestStatusCreator: Processing workflow status', [
+                'cr_id' => $context->changeRequest->id,
+                'workflow_status_index' => $index,
+                'to_status_id' => $workflowStatus->to_status_id,
+            ]);
+            
             if ($strategy->shouldSkipWorkflowStatus($context->changeRequest, $workflowStatus, $context->statusData)) {
+                Log::info('ChangeRequestStatusCreator: Workflow status skipped', [
+                    'cr_id' => $context->changeRequest->id,
+                    'to_status_id' => $workflowStatus->to_status_id,
+                ]);
                 continue;
             }
 
@@ -170,13 +223,31 @@ class ChangeRequestStatusCreator
                 $context->changeRequest
             );
             $this->active_flag = $active;
+            
+            Log::info('ChangeRequestStatusCreator: Active status determined', [
+                'cr_id' => $context->changeRequest->id,
+                'to_status_id' => $workflowStatus->to_status_id,
+                'determined_active' => $active,
+            ]);
 
             $newStatusRow = Status::find($workflowStatus->to_status_id);
             $previous_group_id = session('current_group') ?: (auth()->check() ? auth()->user()->default_group : null);
 
             $viewTechFlag = $newStatusRow?->view_technical_team_flag ?? false;
+            
+            Log::info('ChangeRequestStatusCreator: Status row details', [
+                'cr_id' => $context->changeRequest->id,
+                'to_status_id' => $workflowStatus->to_status_id,
+                'view_tech_flag' => $viewTechFlag,
+                'previous_group_id' => $previous_group_id,
+            ]);
 
             if ($viewTechFlag) {
+                Log::info('ChangeRequestStatusCreator: Processing technical team workflow', [
+                    'cr_id' => $context->changeRequest->id,
+                    'to_status_id' => $workflowStatus->to_status_id,
+                ]);
+                
                 $previous_technical_teams = [];
                 if ($context->changeRequest && $context->changeRequest->technical_Cr_first) {
                     $previous_technical_teams = $context->changeRequest->technical_Cr_first->technical_cr_team
@@ -187,8 +258,20 @@ class ChangeRequestStatusCreator
                 $reqTechnicalTeams = $context->request['technical_teams'] ?? $context->request->technical_teams ?? null;
                 $teams = $reqTechnicalTeams ?? $previous_technical_teams;
 
+                Log::info('ChangeRequestStatusCreator: Technical teams data', [
+                    'cr_id' => $context->changeRequest->id,
+                    'req_technical_teams' => $reqTechnicalTeams,
+                    'previous_technical_teams' => $previous_technical_teams,
+                    'final_teams' => $teams,
+                ]);
+
                 if (!empty($teams) && is_iterable($teams)) {
                     foreach ($teams as $teamGroupId) {
+                        Log::info('ChangeRequestStatusCreator: Creating technical team status record', [
+                            'cr_id' => $context->changeRequest->id,
+                            'team_group_id' => $teamGroupId,
+                        ]);
+                        
                         $this->createStatusRecord(
                             $context->changeRequest->id,
                             $context->statusData['old_status_id'],
@@ -201,14 +284,31 @@ class ChangeRequestStatusCreator
                             $active
                         );
                     }
+                } else {
+                    Log::warning('ChangeRequestStatusCreator: No technical teams found for technical workflow', [
+                        'cr_id' => $context->changeRequest->id,
+                        'to_status_id' => $workflowStatus->to_status_id,
+                    ]);
                 }
             } else {
+                Log::info('ChangeRequestStatusCreator: Processing normal workflow', [
+                    'cr_id' => $context->changeRequest->id,
+                    'to_status_id' => $workflowStatus->to_status_id,
+                ]);
+                
                 $targetGroupId = optional($newStatusRow->group_statuses)
                     ->where('type', '2')
                     ->pluck('group_id')
                     ->first();
 
                 $refGroupId = $currentStatus ? $currentStatus->reference_group_id : null;
+                
+                Log::info('ChangeRequestStatusCreator: Normal workflow group data', [
+                    'cr_id' => $context->changeRequest->id,
+                    'target_group_id' => $targetGroupId,
+                    'ref_group_id' => $refGroupId,
+                    'previous_group_id' => $previous_group_id,
+                ]);
 
                 $this->createStatusRecord(
                     $context->changeRequest->id,
@@ -227,6 +327,18 @@ class ChangeRequestStatusCreator
 
     private function createStatusRecord($changeRequestId, $oldStatusId, $newStatusId, $groupId, $referenceGroupId, $previousGroupId, $currentGroupId, $userId, $active)
     {
+        Log::info('ChangeRequestStatusCreator: createStatusRecord START', [
+            'change_request_id' => $changeRequestId,
+            'old_status_id' => $oldStatusId,
+            'new_status_id' => $newStatusId,
+            'group_id' => $groupId,
+            'reference_group_id' => $referenceGroupId,
+            'previous_group_id' => $previousGroupId,
+            'current_group_id' => $currentGroupId,
+            'user_id' => $userId,
+            'active' => $active,
+        ]);
+        
         $payload = $this->buildStatusData(
             $changeRequestId,
             $oldStatusId,
@@ -238,7 +350,36 @@ class ChangeRequestStatusCreator
             $userId,
             $active
         );
-        $this->statusRepository->create($payload);
+        
+        Log::info('ChangeRequestStatusCreator: Status payload built', [
+            'change_request_id' => $changeRequestId,
+            'payload' => $payload,
+        ]);
+        
+        try {
+            $result = $this->statusRepository->create($payload);
+            
+            if ($result) {
+                Log::info('ChangeRequestStatusCreator: Status record created successfully', [
+                    'change_request_id' => $changeRequestId,
+                    'new_status_id' => $newStatusId,
+                    'created_record_id' => $result->id,
+                ]);
+            } else {
+                Log::error('ChangeRequestStatusCreator: Status repository create returned null/false', [
+                    'change_request_id' => $changeRequestId,
+                    'new_status_id' => $newStatusId,
+                ]);
+            }
+        } catch (Exception $e) {
+            Log::error('ChangeRequestStatusCreator: Exception in createStatusRecord', [
+                'change_request_id' => $changeRequestId,
+                'new_status_id' => $newStatusId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
+        }
     }
 
     private function buildStatusData(
